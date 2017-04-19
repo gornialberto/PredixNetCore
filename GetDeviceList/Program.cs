@@ -34,17 +34,69 @@ namespace GetDeviceList
             string edgeManagerBaseUrl = Environment.GetEnvironmentVariable("edgeManagerBaseUrl");
             string csvFilePath = Environment.GetEnvironmentVariable("csvFilePath");
 
-            try
-            {
-                //now execute the async part...              
-                MainAsync(baseUAAUrl, clientID, clientSecret, edgeManagerBaseUrl, csvFilePath).Wait();
-            }
-            catch (Exception ex)
-            {
-                logger.Fatal("Fatal Error see logs for details.",ex);
-                logger.Debug(ex.ToString());
+            bool inputValid = true;
 
-                Console.WriteLine("There was an error during the execution of the tool. " + ex.ToString());
+            if (string.IsNullOrEmpty(baseUAAUrl))
+            {
+                string errMsg = string.Format("Base UAA Url parameter is empty");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+                inputValid = false;
+            }
+
+            if (string.IsNullOrEmpty(clientID))
+            {
+                string errMsg = string.Format("Client ID parameter is empty");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+                inputValid = false;
+            }
+
+            if (string.IsNullOrEmpty(clientSecret))
+            {
+                string errMsg = string.Format("Client Secret parameter is empty");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+                inputValid = false;
+            }
+
+            if (string.IsNullOrEmpty(edgeManagerBaseUrl))
+            {
+                string errMsg = string.Format("Edge Manager Base Url parameter is empty");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+                inputValid = false;
+            }
+
+            if (string.IsNullOrEmpty(csvFilePath))
+            {
+                string errMsg = string.Format("CSV Path parameter is empty");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+                inputValid = false;
+            }
+
+            if ( inputValid)
+            {
+                try
+                {
+                    //now execute the async part...              
+                    MainAsync(baseUAAUrl, clientID, clientSecret, edgeManagerBaseUrl, csvFilePath).Wait();
+                }
+                catch (Exception ex)
+                {
+                    logger.Fatal("Fatal Error see logs for details.",ex);
+                    logger.Debug(ex.ToString());
+
+                    Console.WriteLine("There was an error during the execution of the tool.\n" + ex.ToString());
+                }
+            }
+            else
+            {
+                string errMsg = string.Format("Some parameters is missing. Cannot execute the tool!");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+
             }
         }
 
