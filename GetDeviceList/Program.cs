@@ -43,6 +43,8 @@ namespace GetDeviceList
             {
                 logger.Fatal("Fatal Error see logs for details.",ex);
                 logger.Debug(ex.ToString());
+
+                Console.WriteLine("There was an error during the execution of the tool. " + ex.ToString());
             }
         }
 
