@@ -38,6 +38,7 @@ namespace PredixCommon
             }
             catch (Exception ex)
             {
+                logger.Fatal(ex);
                 throw;
             }
            

@@ -95,8 +95,8 @@ namespace GetDeviceList
             {
                 string errMsg = string.Format("Some parameters is missing. Cannot execute the tool!");
                 logger.Fatal(errMsg);
+                Console.WriteLine();
                 Console.WriteLine(errMsg);
-
             }
         }
 
@@ -139,14 +139,14 @@ namespace GetDeviceList
                         }
                     }
                 }
+
+                Console.WriteLine("Work done!");
             }
             catch (Exception ex)
             {
                 logger.Fatal("An error occurred writing CSV file.", ex);
                 throw;
             }
-
-            Console.WriteLine("Work done!");
         }
 
     }
