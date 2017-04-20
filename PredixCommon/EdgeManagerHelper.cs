@@ -34,7 +34,7 @@ namespace PredixCommon
             
             try
             {
-                await paginatedCall(edgeManagerBaseUri, accessToken, deviceList, 100, 0);
+                await getDeviceListPaginated(edgeManagerBaseUri, accessToken, deviceList, 100, 0);
             }
             catch (Exception ex)
             {
@@ -45,8 +45,7 @@ namespace PredixCommon
             return deviceList;
         }
 
-
-        private async static Task paginatedCall(Uri edgeManagerBaseUri, UAAToken accessToken, DeviceList deviceList, int pageSize, int currentOffset)
+        private async static Task getDeviceListPaginated(Uri edgeManagerBaseUri, UAAToken accessToken, DeviceList deviceList, int pageSize, int currentOffset)
         {
             HttpClient httpClient = new HttpClient();
             
@@ -86,7 +85,7 @@ namespace PredixCommon
                 if (deviceList.Devices.Count() < totalCountInt)
                 {
                     currentOffset += pageSize;
-                    await paginatedCall(edgeManagerBaseUri, accessToken, deviceList, pageSize, currentOffset);
+                    await getDeviceListPaginated(edgeManagerBaseUri, accessToken, deviceList, pageSize, currentOffset);
                 }
             }
             else
@@ -94,5 +93,44 @@ namespace PredixCommon
                 logger.Error("Http Response Failure Status Code " + httpResponseMessage.StatusCode);
             }
         }
+
+
+
+        public async static Task AddOrUpdateDeviceModel(string edgeManagerBaseUrl, UAAToken accessToken, DeviceModel deviceModel)
+        {
+            logger.Debug("AddOrUpdateDeviceModel");
+
+            HttpClient httpClient = new HttpClient();
+
+            //this is the URL of the UAA
+            Uri edgeManagerBaseUri = new Uri(edgeManagerBaseUrl, UriKind.Absolute);
+
+            Uri requestUri = new Uri(edgeManagerBaseUri,
+                URIHelper.GetEdgeManagerV1DeviceModelsUriForPUT(deviceModel));
+
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, requestUri);
+
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(accessToken.TokenType, accessToken.AccessToken);
+            request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue();
+            request.Headers.CacheControl.NoCache = true;
+
+            logger.Debug("Sending Http Request");
+
+            var httpResponseMessage = await httpClient.SendAsync(request);
+
+            logger.Debug("Http Request executed");
+
+            if (httpResponseMessage.IsSuccessStatusCode)
+            {
+                logger.Debug("Http Response Success Status Code " + httpResponseMessage.StatusCode);
+            }
+            else
+            {
+                logger.Error("Http Response Failure Status Code " + httpResponseMessage.StatusCode);
+            }
+
+            return;
+        }
+
     }
 }

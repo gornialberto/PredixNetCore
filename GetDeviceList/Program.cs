@@ -19,12 +19,8 @@ namespace GetDeviceList
 
             logger.Debug("App Started");
 
-            //This tool requires some parameters:
-            //0 - TenantInformation
-            //1 - the url of the file with the output analisys
-
             Console.WriteLine("-------------------------------------------");
-            Console.WriteLine(" Edge Manager v" + versionNumber);
+            Console.WriteLine(" Get Device Listv" + versionNumber);
             Console.WriteLine("-------------------------------------------");
             Console.WriteLine();
 
@@ -103,7 +99,7 @@ namespace GetDeviceList
 
         static async Task MainAsync(string baseUAAUrl, string clientID,string clientSecret,string edgeManagerBaseUrl, string csvFilePath)
         {
-            System.Diagnostics.Debug.WriteLine("Entering MainAsync");
+            logger.Debug("Entering MainAsync");
 
             Console.WriteLine("Getting Access Token for ClientID: " + clientID);
 

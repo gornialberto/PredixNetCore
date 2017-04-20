@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using PredixCommon;
+using PredixCommon.Entities.EdgeManager;
 
 namespace PredixCommon
 {
@@ -33,7 +34,15 @@ namespace PredixCommon
         }
 
         //return new Uri(string.Format(uriTemplate, tenantInformation.UAAId), UriKind.Absolute);
+        
+        public const string edgeManagerV1DeviceModelsRelativeUrl = "/svc/device/v1/device-mgmt/device_models";
 
+        public static Uri GetEdgeManagerV1DeviceModelsUriForPUT(DeviceModel deviceModel)
+        {
+            var uri = new Uri(edgeManagerV1DeviceModelsRelativeUrl + "/" + deviceModel.id, UriKind.Relative);
+
+            return uri;
+        }
 
         /// <summary>
         /// Add query string parameters
