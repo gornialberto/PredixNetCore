@@ -23,7 +23,7 @@ namespace GetDeviceList
             Console.WriteLine(" Get Device Listv" + versionNumber);
             Console.WriteLine("-------------------------------------------");
             Console.WriteLine();
-
+            
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
             string clientSecret = Environment.GetEnvironmentVariable("clientSecret");

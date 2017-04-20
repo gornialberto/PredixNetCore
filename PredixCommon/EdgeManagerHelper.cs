@@ -98,7 +98,7 @@ namespace PredixCommon
 
         public async static Task AddOrUpdateDeviceModel(string edgeManagerBaseUrl, UAAToken accessToken, DeviceModel deviceModel)
         {
-            logger.Debug("AddOrUpdateDeviceModel");
+            logger.Debug("Add or Update DeviceModel: " + deviceModel.id);
 
             HttpClient httpClient = new HttpClient();
 
@@ -113,6 +113,11 @@ namespace PredixCommon
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(accessToken.TokenType, accessToken.AccessToken);
             request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue();
             request.Headers.CacheControl.NoCache = true;
+
+            var deviceModelJSON = Newtonsoft.Json.JsonConvert.SerializeObject(deviceModel);
+
+            request.Content = new StringContent(deviceModelJSON, Encoding.UTF8, "application/json");
+            
 
             logger.Debug("Sending Http Request");
 
