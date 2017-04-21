@@ -1,12 +1,16 @@
-﻿using PredixCommon.Entities.EdgeManager;
+﻿using log4net;
+using PredixCommon.Entities.EdgeManager;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace DeployDeviceModels
 {
     public class DeviceModelCSV
     {
+        private static ILog logger = LogManager.GetLogger(typeof(DeviceModelCSV));
+
         //Device Model Name Description Processor Core #	Memory GB	Storage GB	OS	Location-Code	Location-Description
         public string DeviceModelName { get; set; }
 
@@ -24,10 +28,10 @@ namespace DeployDeviceModels
 
         public string Location { get; set; }
 
-        public DeviceTypeEnum DeviceType { get; set; }
+        public string DeviceVersion { get; set; }
    
 
-        public DeviceModel ToDeviceModel()
+        public DeviceModel ToDeviceModel(IEnumerable<Base64DataCSV> imageCSVList, IEnumerable<Base64DataCSV> iconCSVList)
         {
             DeviceModel deviceModel = new DeviceModel();
             deviceModel.customAttributes = new DeviceModelCustomAttributes();
@@ -42,11 +46,31 @@ namespace DeployDeviceModels
             deviceModel.processor = this.Processor;
             deviceModel.storageGB = double.Parse(this.StorageGB);
 
-            deviceModel.photo = DeviceImagesCatalog.CatalogByDeviceType[this.DeviceType].PhotoBase64;
-            deviceModel.icon = DeviceImagesCatalog.CatalogByDeviceType[this.DeviceType].IconBase64;
+            var deviceImageData = imageCSVList.Where(i => i.DeviceVersion == this.DeviceVersion).FirstOrDefault();
+
+            if (deviceImageData != null)
+            {
+                deviceModel.photo = deviceImageData.Base64Data;
+            }
+            else
+            {
+                logger.Error(string.Format("Missing Image data for {0}", this.DeviceVersion));
+            }
+
+            var deviceIconData = iconCSVList.Where(i => i.DeviceVersion == this.DeviceVersion).FirstOrDefault();
+
+            if (deviceIconData != null)
+            {
+                deviceModel.icon = deviceIconData.Base64Data;
+            }
+            else
+            {
+                logger.Error(string.Format("Missing Icon data for {0}", this.DeviceVersion));
+            }
 
             return deviceModel;
         }
+        
     }
 
     public class DeviceModelCustomAttributes : ICustomAttributes
