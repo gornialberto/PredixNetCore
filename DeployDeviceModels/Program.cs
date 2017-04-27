@@ -28,8 +28,8 @@ namespace DeployDeviceModels
             logInfoWriter("-------------------------------------------");
             logInfoWriter(" Deploy Device Models v" + versionNumber);
             logInfoWriter("-------------------------------------------");
-     
 
+         
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
@@ -176,7 +176,7 @@ namespace DeployDeviceModels
 
             try
             {
-                using (var csvFileStream = System.IO.File.OpenRead(imageCsvPath))
+                using (var csvFileStream = System.IO.File.OpenRead(iconCsvPath))
                 {
                     using (var csvFileReader = new System.IO.StreamReader(csvFileStream))
                     {
@@ -218,7 +218,8 @@ namespace DeployDeviceModels
                 }
                 catch (Exception ex)
                 {
-                    logger.Fatal("An error occurred working with the Cloud.", ex);
+                    var msg = string.Format("An error occurred working with the Cloud.\n{0}", ex);
+                    logFatalWriter(msg);
                     throw;
                 }
             }
@@ -231,6 +232,12 @@ namespace DeployDeviceModels
             logger.Info(content);
         }
 
+        private static void logErrorWriter(string content)
+        {
+            Console.WriteLine(content);
+            logger.Error(content);
+
+        }
         private static void logFatalWriter(string content)
         {
             Console.WriteLine(content);

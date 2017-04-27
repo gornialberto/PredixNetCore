@@ -1,10 +1,13 @@
 ﻿using log4net;
+using log4net.Config;
 using PredixCommon;
 using PredixCommon.Entities;
 using PredixCommon.Entities.EdgeManager;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace GetDeviceList
@@ -15,6 +18,9 @@ namespace GetDeviceList
 
         static void Main(string[] args)
         {
+            var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
+            XmlConfigurator.Configure(logRepository, new FileInfo("log4net.config"));
+
             string versionNumber = "1.0";
 
             logger.Debug("App Started");
@@ -23,7 +29,8 @@ namespace GetDeviceList
             Console.WriteLine(" Get Device Listv" + versionNumber);
             Console.WriteLine("-------------------------------------------");
             Console.WriteLine();
-            
+
+
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
             string clientSecret = Environment.GetEnvironmentVariable("clientSecret");
@@ -72,7 +79,7 @@ namespace GetDeviceList
                 inputValid = false;
             }
 
-            if ( inputValid)
+            if (inputValid)
             {
                 try
                 {
@@ -81,18 +88,14 @@ namespace GetDeviceList
                 }
                 catch (Exception ex)
                 {
-                    logger.Fatal("Fatal Error see logs for details.",ex);
-                    logger.Debug(ex.ToString());
-
-                    Console.WriteLine("There was an error during the execution of the tool.\n" + ex.ToString());
+                    string errMsg = string.Format("There was an error during the execution of the tool.\n{0}", ex);
+                    logFatalWriter(errMsg);
                 }
             }
             else
             {
                 string errMsg = string.Format("Some parameters is missing. Cannot execute the tool!");
-                logger.Fatal(errMsg);
-                Console.WriteLine();
-                Console.WriteLine(errMsg);
+                logFatalWriter(errMsg);
             }
         }
 
@@ -101,21 +104,37 @@ namespace GetDeviceList
         {
             logger.Debug("Entering MainAsync");
 
-            Console.WriteLine("Getting Access Token for ClientID: " + clientID);
+            logInfoWriter("Getting Access Token for ClientID: " + clientID);
 
             UAAToken accessToken = await UAAHelper.GetClientCredentialsGrantAccessToken(baseUAAUrl, clientID, clientSecret);
 
-            Console.WriteLine("Token obtained!");
+            logInfoWriter("Token obtained!");
 
-            Console.WriteLine("Querying Edge Manager for Device List: " + edgeManagerBaseUrl);
+            logInfoWriter("Querying Edge Manager for Device List: " + edgeManagerBaseUrl);
 
             //get the list of tags
             DeviceList deviceList = await EdgeManagerHelper.GetDeviceList(edgeManagerBaseUrl,accessToken);
 
-            Console.WriteLine("Found " + deviceList.Devices.Count() + " devices.");
+            logInfoWriter("Found " + deviceList.Devices.Count() + " devices.");
+
+            List<DeviceDetails> deviceDetailsList = null;
+
+            /*
+             
+            deviceDetailsList = new List<DeviceDetails>();
+            
+            //ok now for each device gets its details..  it will be time consuming!!
+            foreach (var device in deviceList.Devices)
+            {
+                DeviceDetails deviceDetails = await EdgeManagerHelper.GetSingleDeviceDetails(edgeManagerBaseUrl, accessToken, device.did);
+
+                if (deviceDetails != null)
+                    deviceDetailsList.Add(deviceDetails);
+            }
+            */
 
             var deviceCsvList = from device in deviceList.Devices
-                                select DeviceListCSV.FromDevice(device);
+                                select DeviceListCSV.FromDevice(device, deviceDetailsList);
 
             try
             {
@@ -140,9 +159,28 @@ namespace GetDeviceList
             }
             catch (Exception ex)
             {
-                logger.Fatal("An error occurred writing CSV file.", ex);
-                throw;
+                var msg = string.Format("An error occurred writing CSV file.\n{0}", ex);
+                logFatalWriter(msg);
             }
+        }
+
+
+        private static void logInfoWriter(string content)
+        {
+            Console.WriteLine(content);
+            logger.Info(content);
+        }
+
+        private static void logErrorWriter(string content)
+        {
+            Console.WriteLine(content);
+            logger.Error(content);
+
+        }
+        private static void logFatalWriter(string content)
+        {
+            Console.WriteLine(content);
+            logger.Fatal(content);
         }
 
     }

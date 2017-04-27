@@ -94,6 +94,47 @@ namespace PredixCommon
             }
         }
 
+        public async static Task<DeviceDetails> GetSingleDeviceDetails(string edgeManagerBaseUrl, UAAToken accessToken, string deviceId)
+        {
+            logger.Debug("Get Single Device Details: " + deviceId);
+
+            HttpClient httpClient = new HttpClient();
+
+            //this is the URL of the UAA
+            Uri edgeManagerBaseUri = new Uri(edgeManagerBaseUrl, UriKind.Absolute);
+
+            Uri requestUri = new Uri(edgeManagerBaseUri,
+                URIHelper.GetEdgeManagerV1DeviceDetailsRelativeUri(deviceId));
+
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(accessToken.TokenType, accessToken.AccessToken);
+            request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue();
+            request.Headers.CacheControl.NoCache = true;
+            
+            logger.Debug("Sending Http Request");
+
+            var httpResponseMessage = await httpClient.SendAsync(request);
+
+            logger.Debug("Http Request executed");
+
+            if (httpResponseMessage.IsSuccessStatusCode)
+            {
+                logger.Debug("Http Response Success Status Code " + httpResponseMessage.StatusCode);
+
+                var contentStream = await httpResponseMessage.Content.ReadAsStreamAsync();
+
+                var deviceDetails = DeviceDetails.DeserializeStream(new System.IO.StreamReader(contentStream));
+
+                return deviceDetails;
+            }
+            else
+            {
+                logger.Error("Http Response Failure Status Code " + httpResponseMessage.StatusCode);
+            }
+
+            return null;
+        }
 
 
         public async static Task AddOrUpdateDeviceModel(string edgeManagerBaseUrl, UAAToken accessToken, DeviceModel deviceModel)

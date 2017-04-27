@@ -2,6 +2,7 @@
 using PredixCommon.Entities.EdgeManager;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace GetDeviceList
@@ -22,9 +23,11 @@ namespace GetDeviceList
 
         public DateTime? LastStatusChange { get; set; }
 
+        public string Description { get; set; }
 
 
-        public static DeviceListCSV FromDevice(Device device)
+
+        public static DeviceListCSV FromDevice(Device device, IEnumerable<DeviceDetails> deviceDetailsList)
         {
             DeviceListCSV deviceCsv = new DeviceListCSV();
 
@@ -36,7 +39,21 @@ namespace GetDeviceList
             deviceCsv.Status = device.status.device_status;
             deviceCsv.LastStatusChange = !string.IsNullOrEmpty(device.status.last_change) ? DateTimeHelper.JavaTimeStampToDateTime(double.Parse(device.status.last_change)) : (DateTime?)null;
 
+            deviceCsv.Description = device.location != null ? device.location.description : null;
+
+            if (deviceDetailsList != null)
+            {
+                var deviceDetails = deviceDetailsList.Where(dd => dd.did == device.did).FirstOrDefault();
+
+                if (deviceDetails != null)
+                {
+                
+                }
+            }
+
             return deviceCsv;
         }
+
+ 
     }
 }

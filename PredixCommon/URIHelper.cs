@@ -33,8 +33,16 @@ namespace PredixCommon
             return uri;
         }
 
+        public static Uri GetEdgeManagerV1DeviceDetailsRelativeUri(string deviceId)
+        {
+            var uri = new Uri(edgeManagerV1DeviceListRelativeUrl + "/" + deviceId, UriKind.Relative);
+
+            return uri;
+        }
+
+
         //return new Uri(string.Format(uriTemplate, tenantInformation.UAAId), UriKind.Absolute);
-        
+
         public const string edgeManagerV1DeviceModelsRelativeUrl = "/svc/device/v1/device-mgmt/device_models";
 
         public static Uri GetEdgeManagerV1DeviceModelsUriForPUT(DeviceModel deviceModel)

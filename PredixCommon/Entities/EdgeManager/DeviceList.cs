@@ -86,7 +86,7 @@ namespace PredixCommon.Entities.EdgeManager
             }
             catch (Exception ex)
             {
-                logger.Fatal("Error deserializing Device List JSON", ex);
+                logger.Fatal(string.Format("Error deserializing Device List JSON.\n\n{0}",readString), ex);
                 throw;
             }
 
