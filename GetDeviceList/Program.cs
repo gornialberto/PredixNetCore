@@ -99,6 +99,9 @@ namespace GetDeviceList
                 string errMsg = string.Format("Some parameters is missing. Cannot execute the tool!");
                 logFatalWriter(errMsg);
             }
+
+            Console.Write("Hit Enter to quit...");
+            Console.ReadLine();
         }
 
 
