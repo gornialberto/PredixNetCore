@@ -29,12 +29,17 @@ namespace DeployDeviceModels
             logInfoWriter(" Deploy Device Models v" + versionNumber);
             logInfoWriter("-------------------------------------------");
 
-         
+
+            //Environment.SetEnvironmentVariable("deviceModelCsvPath", "C:\\Users\\dev\\Documents\\DeviceModelList_v3.csv");
+            //Environment.SetEnvironmentVariable("imageCsvPath", "C:\\Users\\dev\\Documents\\ImagesList_v3.csv");
+            //Environment.SetEnvironmentVariable("iconCsvPath", "C:\\Users\\dev\\Documents\\IconList_v3.csv");
+       
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
             string clientSecret = Environment.GetEnvironmentVariable("clientSecret");
             string edgeManagerBaseUrl = Environment.GetEnvironmentVariable("edgeManagerBaseUrl");
+
             string deviceModelCsvPath = Environment.GetEnvironmentVariable("deviceModelCsvPath");
             string imageCsvPath = Environment.GetEnvironmentVariable("imageCsvPath");
             string iconCsvPath = Environment.GetEnvironmentVariable("iconCsvPath");

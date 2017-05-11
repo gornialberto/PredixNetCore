@@ -30,6 +30,8 @@ namespace GetDeviceList
             Console.WriteLine("-------------------------------------------");
             Console.WriteLine();
 
+         
+            //Environment.SetEnvironmentVariable("csvFilePath", "C:\\Users\\dev\\Documents\\DeviceListExport_2_05_2017.csv");
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
