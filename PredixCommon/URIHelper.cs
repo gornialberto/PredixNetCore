@@ -10,10 +10,6 @@ namespace PredixCommon
 {
     public static class URIHelper
     {
-        public static Uri predixTimeSeriesQueryTagRelativeUri = new Uri("/v1/tags", UriKind.Relative);
-
-        public static Uri predixTimeSeriesQueryTagValueRelativeUri = new Uri("/v1/datapoints", UriKind.Relative);
-
         /// <summary>
         /// UAA Token Request path
         /// </summary>
@@ -74,5 +70,16 @@ namespace PredixCommon
 
             return builder.ToString();
         }
+
+
+        ///
+        ///TIME SERIES AREA
+        ///
+
+        public static Uri timeSeriesV1InjestionRelativeUri = new Uri("/v1/stream/messages", UriKind.Relative);
+
+        public static Uri timeSeriesQueryTagRelativeUri = new Uri("/v1/tags", UriKind.Relative);
+
+        public static Uri timeSeriesQueryTagValueRelativeUri = new Uri("/v1/datapoints", UriKind.Relative);
     }
 }
