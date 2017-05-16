@@ -1,13 +1,40 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 
 namespace PredixCommon.Entities.TimeSeries
 {
     public class InjestionJSON
     {
+        /// <summary>
+        /// ctor
+        /// </summary>
+        public InjestionJSON()
+        {
+            //set the message ID as the current time in ms
+            this.messageId = DateTimeHelper.DateTimeToUnixTime(DateTime.UtcNow).ToString();
+            this.body = new List<InjestionDataBlock>();
+        }
+
+        /// <summary>
+        /// ctor
+        /// </summary>
+        /// <param name="dataPointsList"></param>
+        public InjestionJSON(IEnumerable<DataPoints> dataPointsList)
+        {
+            //set the message ID as the current time in ms
+            this.messageId = DateTimeHelper.DateTimeToUnixTime(DateTime.UtcNow).ToString();
+            this.body = new List<InjestionDataBlock>();
+
+            foreach (var dataPoint in dataPointsList)
+            {
+                this.body.Add(new InjestionDataBlock(dataPoint));
+            }
+        }
+
         public string messageId { get; set; }
-        public List<Body> body { get; set; }
+        public List<InjestionDataBlock> body { get; set; }
     }
 
     /// <summary>
@@ -18,8 +45,35 @@ namespace PredixCommon.Entities.TimeSeries
 
     }
 
-    public class Body
+    public class NoAttributes : IAttributes
     {
+
+    }
+
+    public class InjestionDataBlock
+    {
+        /// <summary>
+        /// ctor
+        /// </summary>
+        public InjestionDataBlock()
+        {
+            this.attributes = new NoAttributes();
+        }
+
+        /// <summary>
+        /// ctor
+        /// </summary>
+        /// <param name="dataPoints"></param>
+        public InjestionDataBlock(DataPoints dataPoints)
+        {
+            this.name = dataPoints.TagName;
+            this.attributes = dataPoints.attributes;
+
+            this.datapoints = (from item in dataPoints.Values
+                               select item.ToRawJSONValues()).ToList();
+        }
+
+
         /// <summary>
         /// The Tag Name
         /// </summary>
@@ -35,18 +89,23 @@ namespace PredixCommon.Entities.TimeSeries
         /// </summary>
         public IAttributes attributes { get; set; }
 
+
+
+
         /// <summary>
         /// Get the List of Data Point
         /// </summary>
         /// <returns></returns>
-        public List<DataPoint> GetDataPoints()
+        public DataPoints GetDataPoints()
         {
-            List<DataPoint> dataPoints = new List<DataPoint>();
+            DataPoints dataPoints = new DataPoints();
+            dataPoints.TagName = this.name;
+            dataPoints.attributes = this.attributes;
 
             foreach (var rawDataPoint in datapoints)
             {
                 var dataPoint = new DataPoint(rawDataPoint);
-                dataPoints.Add(dataPoint);
+                dataPoints.Values.Add(dataPoint);
             }
 
             return dataPoints;

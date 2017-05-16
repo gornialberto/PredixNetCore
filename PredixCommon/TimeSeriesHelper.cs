@@ -1,5 +1,7 @@
 ﻿using log4net;
+using Newtonsoft.Json;
 using PredixCommon.Entities;
+using PredixCommon.Entities.TimeSeries;
 using PredixEntities;
 using System;
 using System.Collections.Generic;
@@ -152,18 +154,43 @@ namespace PredixCommon
         {
             System.Net.WebSockets.ClientWebSocket cli = new ClientWebSocket();
 
+            cli.Options.SetRequestHeader("Authorization", "Bearer " + accessToken.AccessToken);
             cli.Options.SetRequestHeader("Predix-Zone-Id", timeSeriesZoneId);
-            cli.Options.SetRequestHeader("Origin", "localhost");
-            cli.Options.SetRequestHeader("Authorization", "bearer " + accessToken.AccessToken);
+            cli.Options.SetRequestHeader("Origin", "https://localhost");
+            cli.Options.SetRequestHeader("Content-Type", "application/json");
 
+            //cli.Options.Proxy = new GEProxy();
 
             Uri timeSeriesWSSBaseUri = new Uri(timeSeriesWSSBaseUrl, UriKind.Absolute);
 
             Uri timeSeriesWSSUri = new Uri(timeSeriesWSSBaseUri, URIHelper.timeSeriesV1InjestionRelativeUri);
-     
+
+
             await cli.ConnectAsync(timeSeriesWSSUri, CancellationToken.None);
 
             return cli;
+        }
+
+        static UTF8Encoding encoder = new UTF8Encoding();
+
+        /// <summary>
+        /// Injest data in Time Series...
+        /// </summary>
+        /// <param name="webSocket"></param>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public async static Task IngestData(ClientWebSocket webSocket, IEnumerable<DataPoints> data)
+        {
+            //ok now create the JSON Payload 
+
+            var jsonPayloadObj = new PredixCommon.Entities.TimeSeries.InjestionJSON(data);
+
+            var jsonPayload = JsonConvert.SerializeObject(jsonPayloadObj,Formatting.Indented);
+
+            byte[] buffer = encoder.GetBytes(jsonPayload);
+            
+            //send and ignore the result.... 
+            await webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
         }
     }
 }

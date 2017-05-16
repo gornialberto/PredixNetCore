@@ -2,9 +2,12 @@
 using log4net.Config;
 using PredixCommon;
 using PredixCommon.Entities;
+using PredixCommon.Entities.TimeSeries;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.WebSockets;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -28,7 +31,7 @@ namespace IngestCSVDataIntoTimeSeries
             Console.WriteLine("-------------------------------------------");
             Console.WriteLine();
 
-     
+       
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
@@ -115,9 +118,6 @@ namespace IngestCSVDataIntoTimeSeries
                 string errMsg = string.Format("Some parameters is missing. Cannot execute the tool!");
                 logFatalWriter(errMsg);
             }
-
-            Console.Write("Hit Enter to quit...");
-            Console.ReadLine();
         }
 
 
@@ -131,14 +131,90 @@ namespace IngestCSVDataIntoTimeSeries
 
             logInfoWriter("Token obtained!");
 
-            logInfoWriter("Querying Time Series for Tag List.  TS Url: " + timeSeriesBaseUrl);
+            //logInfoWriter("Querying Time Series for Tag List.  TS Url: " + timeSeriesBaseUrl);
 
-            var listOfTags = await TimeSeriesHelper.GetFullTagListOfTimeSeriesZoneId(timeSeriesBaseUrl, timeSeriesZoneId, accessToken);
+            //var listOfTags = await TimeSeriesHelper.GetFullTagListOfTimeSeriesZoneId(timeSeriesBaseUrl, timeSeriesZoneId, accessToken);
 
-            logInfoWriter(string.Format("Discovered {0} tags.", listOfTags.Tags.Count()));
+            //logInfoWriter(string.Format("Discovered {0} tags.", listOfTags.Tags.Count()));
 
-            var webSocket = await TimeSeriesHelper.GetWebSocketConnection(timeSeriesWSSBaseUrl, timeSeriesZoneId, accessToken);
+            ClientWebSocket webSocket;
+
+            try
+            {
+                webSocket = await TimeSeriesHelper.GetWebSocketConnection(timeSeriesWSSBaseUrl, timeSeriesZoneId, accessToken);
+            }
+            catch (Exception ex)
+            {
+                logFatalWriter(ex.ToString());
+                throw;
+            }
+
+            List<DataPoints> dataPointsList = new List<DataPoints>();
+
+            logInfoWriter("Starting to read the CSV Content");
+
+            try
+            {
+                using (var csvFileStream = System.IO.File.OpenRead(csvFilePath))
+                {
+                    using (var csvFileReader = new System.IO.StreamReader(csvFileStream))
+                    {
+                        using (CsvHelper.CsvReader csvReader = new CsvHelper.CsvReader(csvFileReader))
+                        {
+                            var timeSeriesData = csvReader.GetRecords<TimeSeriesDataCSV>();
+
+                            //now fill the Data Points list...
+
+                            //group by TagName the data
+                            var timeSeriesDataByTagName = timeSeriesData.GroupBy(i => i.TagName);
+
+                            foreach (var dataGroupByTag in timeSeriesDataByTagName)
+                            {
+                                DataPoints dataPoints = new DataPoints();
+                                dataPoints.TagName = dataGroupByTag.Key;
+
+                                var dataPointItems = from item in dataGroupByTag
+                                                     select new DataPoint() { TimeStamp = item.TimeStamp,
+                                                         Value = item.Value,
+                                                         Quality = DataQuality.Good };
+
+                                dataPoints.Values.AddRange(dataPointItems);
+
+                                dataPointsList.Add(dataPoints);
+                            }
+                        }
+                    }
+                }
+
+                logInfoWriter("Time Series Data readed from CSV.");
+            }
+            catch (Exception ex)
+            {
+                var msg = string.Format("An error occurred reading CSV file.\n{0}", ex);
+                logFatalWriter(msg);
+            }
+
+            //DataPoints dataPoints = new DataPoints();
+            //dataPoints.TagName = "aSampleTag3";
+            //dataPoints.Values.Add(new DataPoint() { TimeStamp = (long)DateTimeHelper.DateTimeToUnixTime(DateTime.UtcNow),
+            // Value = "100", Quality = DataQuality.Good});
+
+            try
+            {
+                logInfoWriter("Sending data to Time Series");
+
+                await TimeSeriesHelper.IngestData(webSocket, dataPointsList);
+
+                logInfoWriter("Data sent");
+            }
+            catch (Exception ex)
+            {
+                logFatalWriter(string.Format("Error sending data to Time Series.\n{0}", ex.ToString()));
+                throw;
+            }
         }
+
+
 
 
         private static void logInfoWriter(string content)
