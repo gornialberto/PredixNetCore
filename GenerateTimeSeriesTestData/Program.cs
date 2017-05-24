@@ -36,16 +36,18 @@ namespace GenerateTimeSeriesTestData
             Console.WriteLine();
 
 
-            //Environment.SetEnvironmentVariable("csvFilePath", "C:\\Users\\dev\\Documents\\TimeSeriesData");
-            //Environment.SetEnvironmentVariable("startTime", "2017/05/01");
-            //Environment.SetEnvironmentVariable("endTime", "2017/05/15");
-            //Environment.SetEnvironmentVariable("numberOfTags", "1000");
-            //Environment.SetEnvironmentVariable("eventPeriod", "30.0"); //every X seconds it happens an event
-            //Environment.SetEnvironmentVariable("fileSize", "100000");
+            Environment.SetEnvironmentVariable("csvFilePath", "C:\\Users\\dev\\Documents\\TimeSeriesData");
+            Environment.SetEnvironmentVariable("startTime", "2017/05/01");
+            Environment.SetEnvironmentVariable("endTime", "2017/05/15");
+            Environment.SetEnvironmentVariable("baseNameForTag", "Tag-{0}");
+            Environment.SetEnvironmentVariable("numberOfTags", "10");
+            Environment.SetEnvironmentVariable("eventPeriod", "30.0"); //every X seconds it happens an event
+            Environment.SetEnvironmentVariable("fileSize", "150000");
 
 
-
+            
             int numberOfTags = int.Parse(Environment.GetEnvironmentVariable("numberOfTags"));
+            string baseNameForTag = Environment.GetEnvironmentVariable("baseNameForTag");
             double eventPeriod = double.Parse(Environment.GetEnvironmentVariable("eventPeriod"));
            
             _csvFilePath = Environment.GetEnvironmentVariable("csvFilePath");
@@ -59,7 +61,7 @@ namespace GenerateTimeSeriesTestData
               
             for (int tagId = 0; tagId < numberOfTags; tagId++)
             {  
-                var tagName = string.Format("Sample-Tag-{0}", tagId);
+                var tagName = string.Format(baseNameForTag, tagId);
 
                 DateTime currentTime = startTime;
 

@@ -30,9 +30,7 @@ namespace IngestCSVDataIntoTimeSeries
             Console.WriteLine(" Ingest CSV Data Into TimeSeries v " + versionNumber);
             Console.WriteLine("-------------------------------------------");
             Console.WriteLine();
-
-         
-
+            
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
             string clientSecret = Environment.GetEnvironmentVariable("clientSecret");
