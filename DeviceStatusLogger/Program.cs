@@ -30,12 +30,7 @@ namespace DeviceStatusLogger
             logInfoWriter("-------------------------------------------");
             logInfoWriter();
 
-            Environment.SetEnvironmentVariable("baseUAAUrl", "https://schindler-dev.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io");
-            Environment.SetEnvironmentVariable("clientID", "em-d-app-client");
-            Environment.SetEnvironmentVariable("clientSecret", "9d9T4vthclUgS6J");
-            Environment.SetEnvironmentVariable("edgeManagerBaseUrl", "https://em-d.schindler.edgemanager-d.run.aws-eu-central-1-pr.ice.predix.io");
-
-            Environment.SetEnvironmentVariable("csvFilePath", "C:\\Users\\dev\\Documents\\DeviceStatusExport_06_06_2017.csv");
+             Environment.SetEnvironmentVariable("csvFilePath", "C:\\Users\\dev\\Documents\\DeviceStatusExport_06_06_2017.csv");
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
