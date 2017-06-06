@@ -11,12 +11,12 @@ namespace PredixCommon.Entities.EdgeManager
         private static ILog logger = LogManager.GetLogger(typeof(DeviceDetails));
 
         public Status status { get; set; }
-        public int upTime { get; set; }
+        public long upTime { get; set; }
         public Attributes attributes { get; set; }
         public Capability capability { get; set; }
         public object location { get; set; }
-        public long firstSeenTime { get; set; }
-        public long certIssuedTime { get; set; }
+        public long? firstSeenTime { get; set; }
+        public long? certIssuedTime { get; set; }
         public object alert { get; set; }
         public object statisticsList { get; set; }
         public DeviceModel deviceModel { get; set; }
@@ -99,8 +99,8 @@ namespace PredixCommon.Entities.EdgeManager
         public class Config
         {
             public object technicianId { get; set; }
-            public bool dockerEnabled { get; set; }
-            public bool simulated { get; set; }
+            public bool? dockerEnabled { get; set; }
+            public bool? simulated { get; set; }
             public string csn { get; set; }
             public string deviceUUID { get; set; }
             public object activationCode { get; set; }
@@ -172,8 +172,8 @@ namespace PredixCommon.Entities.EdgeManager
         public class DeviceInfoStatus
         {
             public object deviceId { get; set; }
-            public object hardwareInfo { get; set; }
-            public object simInfo { get; set; }
+            public List<HardwareInfo> hardwareInfo { get; set; }
+            public List<SimInfo> simInfo { get; set; }
             public object powerSupplyStatus { get; set; }
             public DynamicStatus dynamicStatus { get; set; }
             public Capability capability { get; set; }
@@ -181,12 +181,106 @@ namespace PredixCommon.Entities.EdgeManager
             public object deviceProps { get; set; }
             public object bluetoothStatus { get; set; }
             public object wifiStatus { get; set; }
-            public object cellularStatus { get; set; }
+            public List<CellularStatus> cellularStatus { get; set; }
             public object deviceInfoProperties { get; set; }
             public object deviceStatusProperties { get; set; }
         }
 
 
-    }
+        public class CellularStatus
+        {
+            public string id { get; set; }
+            public string networkMode { get; set; }
+            public int dataVolume { get; set; }
+            public SignalStrength signalStrength { get; set; }
+            public object attributes { get; set; }
+        }
 
+        public class SignalStrength
+        {
+            public int rssi { get; set; }
+            public int rsrq { get; set; }
+            public int rsrp { get; set; }
+            public int ecio { get; set; }
+            public int rscp { get; set; }
+            public int sinr { get; set; }
+        }
+
+
+
+        public class Module
+        {
+            public string value { get; set; }
+            public string dataType { get; set; }
+        }
+
+        public class Imsi
+        {
+            public string value { get; set; }
+            public string dataType { get; set; }
+        }
+
+        public class Firmware
+        {
+            public string value { get; set; }
+            public string dataType { get; set; }
+        }
+
+        public class Mno
+        {
+            public string value { get; set; }
+            public string dataType { get; set; }
+        }
+
+        public class SimInfoAttributes
+        {
+            public Module module { get; set; }
+            public Imsi imsi { get; set; }
+            public Firmware firmware { get; set; }
+            public Mno mno { get; set; }
+        }
+
+        public class SimInfo
+        {
+            public string iccid { get; set; }
+            public string imei { get; set; }
+            public SimInfoAttributes attributes { get; set; }
+        }
+
+
+        public class SerialNumber
+        {
+            public string value { get; set; }
+            public string dataType { get; set; }
+        }
+
+        public class BootTime
+        {
+            public string value { get; set; }
+            public string dataType { get; set; }
+        }
+
+        public class BootMethod
+        {
+            public string value { get; set; }
+            public string dataType { get; set; }
+        }
+
+        public class HardwareInfoAttributes
+        {
+            public SerialNumber serialNumber { get; set; }
+            public BootTime bootTime { get; set; }
+            public BootMethod bootMethod { get; set; }
+        }
+
+        public class HardwareInfo
+        {
+            public string category { get; set; }
+            public string manufacturer { get; set; }
+            public string model { get; set; }
+            public string firmware { get; set; }
+            public object properties { get; set; }
+            public HardwareInfoAttributes attributes { get; set; }
+        }
+    }
 }

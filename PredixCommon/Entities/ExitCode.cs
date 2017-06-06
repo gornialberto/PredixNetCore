@@ -12,6 +12,7 @@ namespace PredixCommon.Entities
         NoFileToProcess = 3,
         MissingParameters = 4,
         PartiallyImported = 10,
-        UnknownIssue = 50
+        UnknownIssue = 50,
+        EdgeManagerIssue = 11
     }
 }

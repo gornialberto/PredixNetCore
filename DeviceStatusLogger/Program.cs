@@ -6,11 +6,11 @@ using PredixCommon.Entities.EdgeManager;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Linq;
 
-namespace GetDeviceList
+namespace DeviceStatusLogger
 {
     class Program
     {
@@ -25,13 +25,17 @@ namespace GetDeviceList
 
             logger.Debug("App Started");
 
-            Console.WriteLine("-------------------------------------------");
-            Console.WriteLine(" Get Device Listv" + versionNumber);
-            Console.WriteLine("-------------------------------------------");
-            Console.WriteLine();
+            logInfoWriter("-------------------------------------------");
+            logInfoWriter(" Device Status Logger v" + versionNumber);
+            logInfoWriter("-------------------------------------------");
+            logInfoWriter();
 
-         
-            //Environment.SetEnvironmentVariable("csvFilePath", "C:\\Users\\dev\\Documents\\DeviceListExport_2_05_2017.csv");
+            Environment.SetEnvironmentVariable("baseUAAUrl", "https://schindler-dev.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io");
+            Environment.SetEnvironmentVariable("clientID", "em-d-app-client");
+            Environment.SetEnvironmentVariable("clientSecret", "9d9T4vthclUgS6J");
+            Environment.SetEnvironmentVariable("edgeManagerBaseUrl", "https://em-d.schindler.edgemanager-d.run.aws-eu-central-1-pr.ice.predix.io");
+
+            Environment.SetEnvironmentVariable("csvFilePath", "C:\\Users\\dev\\Documents\\DeviceStatusExport_06_06_2017.csv");
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
@@ -102,7 +106,7 @@ namespace GetDeviceList
         }
 
 
-        static async Task MainAsync(string baseUAAUrl, string clientID,string clientSecret,string edgeManagerBaseUrl, string csvFilePath)
+        static async Task MainAsync(string baseUAAUrl, string clientID, string clientSecret, string edgeManagerBaseUrl, string csvFilePath)
         {
             logger.Debug("Entering MainAsync");
 
@@ -131,33 +135,47 @@ namespace GetDeviceList
                 return;
             }
 
-            logInfoWriter("Token obtained!");
-
             logInfoWriter("Querying Edge Manager for Device List: " + edgeManagerBaseUrl);
 
             //get the list of tags
-            DeviceList deviceList = await EdgeManagerHelper.GetDeviceList(edgeManagerBaseUrl,accessToken);
+            DeviceList deviceList = null;
 
-            logInfoWriter("Found " + deviceList.Devices.Count() + " devices.");
+            try
+            {
+                deviceList = await EdgeManagerHelper.GetDeviceList(edgeManagerBaseUrl, accessToken);
+            }
+            catch (Exception ex)
+            {
+                logFatalWriter(string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                cleanReturn(ExitCode.EdgeManagerIssue);
+                return;
+            }
+
+            logInfoWriter("  Found " + deviceList.Devices.Count() + " devices.", ConsoleColor.Green);
 
             List<DeviceDetails> deviceDetailsList = null;
-
-            /*
-             
+                         
             deviceDetailsList = new List<DeviceDetails>();
             
             //ok now for each device gets its details..  it will be time consuming!!
             foreach (var device in deviceList.Devices)
             {
-                DeviceDetails deviceDetails = await EdgeManagerHelper.GetSingleDeviceDetails(edgeManagerBaseUrl, accessToken, device.did);
+                DeviceDetails deviceDetails = null;
+
+                deviceDetails = await EdgeManagerHelper.GetSingleDeviceDetails(edgeManagerBaseUrl, accessToken, device.did);
 
                 if (deviceDetails != null)
+                {
                     deviceDetailsList.Add(deviceDetails);
+                }
+                else
+                {
+                    logErrorWriter(string.Format("Cannot load the device details for {0} - {1}", device.name, device.deviceUUID));
+                }
             }
-            */
 
             var deviceCsvList = from device in deviceList.Devices
-                                select DeviceListCSV.FromDevice(device, deviceDetailsList);
+                                select DeviceStatusListCSV.FromDevice(device, deviceDetailsList);
 
             try
             {
@@ -167,10 +185,10 @@ namespace GetDeviceList
                     {
                         using (CsvHelper.CsvWriter csvWriter = new CsvHelper.CsvWriter(csvFileWriter))
                         {
-                            csvWriter.WriteHeader<DeviceListCSV>();
+                            csvWriter.WriteHeader<DeviceStatusListCSV>();
 
                             foreach (var deviceCsv in deviceCsvList)
-                                csvWriter.WriteRecord<DeviceListCSV>(deviceCsv);
+                                csvWriter.WriteRecord<DeviceStatusListCSV>(deviceCsv);
 
                             csvFileWriter.Flush();
                             csvFileStream.Flush();
@@ -185,8 +203,9 @@ namespace GetDeviceList
                 var msg = string.Format("An error occurred writing CSV file.\n{0}", ex);
                 logFatalWriter(msg);
             }
-        }
 
+            cleanReturn(ExitCode.Success);
+        }
 
         private static void cleanReturn(ExitCode exitCode)
         {
@@ -217,6 +236,6 @@ namespace GetDeviceList
             Console.WriteLine(content);
             logger.Fatal(content);
         }
-
     }
+
 }
