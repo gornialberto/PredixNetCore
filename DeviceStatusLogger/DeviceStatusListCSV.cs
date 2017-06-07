@@ -60,8 +60,7 @@ namespace DeviceStatusLogger
         public string IPv6 { get; set; }
 
 
-
-        public static DeviceStatusListCSV FromDevice(Device device, IEnumerable<DeviceDetails> deviceDetailsList)
+        public static DeviceStatusListCSV FromDevice(DeviceDetails device)
         {
             DeviceStatusListCSV deviceCsv = new DeviceStatusListCSV();
 
@@ -72,87 +71,76 @@ namespace DeviceStatusLogger
             deviceCsv.LastStatusChange = !string.IsNullOrEmpty(device.status.last_change) ? DateTimeHelper.JavaTimeStampToDateTime(double.Parse(device.status.last_change)) : (DateTime?)null;
 
             deviceCsv.Description = device.location != null ? device.location.description.Replace("\n"," ") : null;
+                                
+            deviceCsv.DeviceUptime = TimeSpan.FromMilliseconds((double)device.upTime);                    
+            deviceCsv.FirstSeen = device.firstSeenTime.HasValue ? DateTimeHelper.JavaTimeStampToDateTime((double)device.firstSeenTime.Value) : (DateTime?)null;  
 
-            if (deviceDetailsList != null)
-            {                
-                var deviceDetails = deviceDetailsList.Where(dd => dd.did == device.did).FirstOrDefault();
+            if (device.deviceInfoStatus.simInfo != null)
+            {
+                var simInfo = device.deviceInfoStatus.simInfo.FirstOrDefault();
 
-                if (deviceDetails != null)
+                if (simInfo != null)
                 {
-                    deviceCsv.DeviceUptime = TimeSpan.FromMilliseconds((double)deviceDetails.upTime);                    
-                    deviceCsv.FirstSeen = deviceDetails.firstSeenTime.HasValue ? DateTimeHelper.JavaTimeStampToDateTime((double)deviceDetails.firstSeenTime.Value) : (DateTime?)null;  
+                    deviceCsv.iccid = simInfo.iccid;
+                    deviceCsv.imei = simInfo.imei;
 
-                    if (deviceDetails.deviceInfoStatus.simInfo != null)
+                    if (simInfo.attributes != null)
                     {
-                        var simInfo = deviceDetails.deviceInfoStatus.simInfo.FirstOrDefault();
-
-                        if (simInfo != null)
+                        if (simInfo.attributes.imsi != null)
                         {
-                            deviceCsv.iccid = simInfo.iccid;
-                            deviceCsv.imei = simInfo.imei;
-
-                            if (simInfo.attributes != null)
-                            {
-                                if (simInfo.attributes.imsi != null)
-                                {
-                                    deviceCsv.imsi = simInfo.attributes.imsi.value;
-                                }
-
-                                if (simInfo.attributes.mno != null)
-                                {
-                                    deviceCsv.mno = simInfo.attributes.mno.value;
-                                }
-
-                                if (simInfo.attributes.module != null)
-                                {
-                                    deviceCsv.module = simInfo.attributes.module.value;
-                                }
-
-                                if (simInfo.attributes.firmware != null)
-                                {
-                                    deviceCsv.firmware = simInfo.attributes.firmware.value;
-                                }
-                            }
+                            deviceCsv.imsi = simInfo.attributes.imsi.value;
                         }
 
+                        if (simInfo.attributes.mno != null)
+                        {
+                            deviceCsv.mno = simInfo.attributes.mno.value;
+                        }
+
+                        if (simInfo.attributes.module != null)
+                        {
+                            deviceCsv.module = simInfo.attributes.module.value;
+                        }
+
+                        if (simInfo.attributes.firmware != null)
+                        {
+                            deviceCsv.firmware = simInfo.attributes.firmware.value;
+                        }
                     }
+                }
+
+            }
                     
-                    if (deviceDetails.deviceInfoStatus.cellularStatus != null)
-                    {
-                        var cellularStatus = deviceDetails.deviceInfoStatus.cellularStatus.FirstOrDefault();
+            if (device.deviceInfoStatus.cellularStatus != null)
+            {
+                var cellularStatus = device.deviceInfoStatus.cellularStatus.FirstOrDefault();
 
-                        if (cellularStatus != null)
-                        {
-                            deviceCsv.networkMode = cellularStatus.networkMode;
+                if (cellularStatus != null)
+                {
+                    deviceCsv.networkMode = cellularStatus.networkMode;
 
-                            deviceCsv.rssi = cellularStatus.signalStrength.rssi;
-                            deviceCsv.rsrq = cellularStatus.signalStrength.rsrq;
-                            deviceCsv.rsrp = cellularStatus.signalStrength.rsrp;
-                            deviceCsv.ecio = cellularStatus.signalStrength.ecio;
-                            deviceCsv.rscp = cellularStatus.signalStrength.rscp;
-                            deviceCsv.sinr = cellularStatus.signalStrength.sinr;
-                        }
-                    }
-
-                    if (deviceDetails.deviceInfoStatus.dynamicStatus != null)
-                    {
-                        if (deviceDetails.deviceInfoStatus.dynamicStatus.networkInfo != null)
-                        {
-                            var tun0Network = deviceDetails.deviceInfoStatus.dynamicStatus.networkInfo.Where(ni => ni.name == "tun0").FirstOrDefault();
-
-                            if (tun0Network != null)
-                            {
-                                deviceCsv.IPv6 = tun0Network.ipv6Addresses.FirstOrDefault();
-                            }
-                        }
-                    }
-                    
-                } //end device detials != null
+                    deviceCsv.rssi = cellularStatus.signalStrength.rssi;
+                    deviceCsv.rsrq = cellularStatus.signalStrength.rsrq;
+                    deviceCsv.rsrp = cellularStatus.signalStrength.rsrp;
+                    deviceCsv.ecio = cellularStatus.signalStrength.ecio;
+                    deviceCsv.rscp = cellularStatus.signalStrength.rscp;
+                    deviceCsv.sinr = cellularStatus.signalStrength.sinr;
+                }
             }
 
+            if (device.deviceInfoStatus.dynamicStatus != null)
+            {
+                if (device.deviceInfoStatus.dynamicStatus.networkInfo != null)
+                {
+                    var tun0Network = device.deviceInfoStatus.dynamicStatus.networkInfo.Where(ni => ni.name == "tun0").FirstOrDefault();
+
+                    if (tun0Network != null)
+                    {
+                        deviceCsv.IPv6 = tun0Network.ipv6Addresses.FirstOrDefault();
+                    }
+                }
+            }
+             
             return deviceCsv;
         }
-
- 
     }
 }

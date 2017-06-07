@@ -14,7 +14,7 @@ namespace PredixCommon.Entities.EdgeManager
         public long upTime { get; set; }
         public Attributes attributes { get; set; }
         public Capability capability { get; set; }
-        public object location { get; set; }
+        public Location location { get; set; }
         public long? firstSeenTime { get; set; }
         public long? certIssuedTime { get; set; }
         public object alert { get; set; }
@@ -53,7 +53,20 @@ namespace PredixCommon.Entities.EdgeManager
             }
 
             return jsonObj;
-        } 
+        }
+
+        public class Location
+        {
+            public string description { get; set; }
+            public object photo { get; set; }
+            public object city { get; set; }
+            public object state { get; set; }
+            public object country { get; set; }
+            public object timezone { get; set; }
+            public object elevation { get; set; }
+            public object lat { get; set; }
+            public object lng { get; set; }
+        }
 
         public class Status
         {

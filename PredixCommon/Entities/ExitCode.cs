@@ -13,6 +13,7 @@ namespace PredixCommon.Entities
         MissingParameters = 4,
         PartiallyImported = 10,
         UnknownIssue = 50,
-        EdgeManagerIssue = 11
+        EdgeManagerIssue = 11,
+        MQTTNotConnected = 12
     }
 }
