@@ -28,7 +28,7 @@ namespace DeviceStatusMQTT
         /// </summary>
         /// <param name="value"></param>
         /// <param name="timeStamp"></param>
-        public ValueTimeStamp(string value, DateTime timeStamp)
+        public ValueTimeStamp(object value, DateTime timeStamp)
         {
             this.Value = value;
             this.TimeStamp = timeStamp;
@@ -36,7 +36,7 @@ namespace DeviceStatusMQTT
 
         
 
-        public string Value { get; set; }
+        public object Value { get; set; }
 
         public DateTime TimeStamp { get; set; }
 

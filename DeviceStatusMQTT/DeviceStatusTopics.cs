@@ -10,8 +10,10 @@ namespace DeviceStatusMQTT
     public class DeviceStatusTopics
     {
         public const string TopicTemplate = "deviceStatus/{DeviceId}/{typeOfValue}";
-
+        
         public const string MQTTStatusTopic = "deviceStatus/status";
+
+        public const string MQTTDeviceListTopic = "deviceStatus/DeviceList";
 
         public const string DeviceName = "DeviceName";
         public const string mno = "mno";

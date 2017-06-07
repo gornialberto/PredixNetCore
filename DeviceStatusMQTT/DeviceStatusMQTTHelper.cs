@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace DeviceStatusMQTT
 {
@@ -66,7 +68,7 @@ namespace DeviceStatusMQTT
         /// <param name="mqttClient"></param>
         /// <param name="dev"></param>
         /// <param name="timeStamp"></param>
-        public static void PushMQTTDeviceDetails(MqttClient mqttClient, DeviceDetails dev, DateTime timeStamp)
+        public static void PublishMQTTDeviceDetails(MqttClient mqttClient, DeviceDetails dev, DateTime timeStamp)
         {
             var topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.DeviceName);
             var value = Encoding.UTF8.GetBytes(new ValueTimeStamp(dev.name, timeStamp).ToJSON());
@@ -170,6 +172,18 @@ namespace DeviceStatusMQTT
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
                 }
             }
+        }
+
+        public static void PublishMQTTDeviceList(MqttClient mqttClient, List<DeviceDetails> deviceCsvList, DateTime timeStamp)
+        {
+            var topic = DeviceStatusTopics.MQTTDeviceListTopic;
+
+            var deviceIdList = from dev in deviceCsvList
+                                 select dev.did;
+
+            var jsonPayload = new ValueTimeStamp(deviceIdList, timeStamp).ToJSON();
+            var value = Encoding.UTF8.GetBytes(jsonPayload);
+            mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
         }
     }
 }
