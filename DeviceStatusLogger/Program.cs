@@ -33,9 +33,11 @@ namespace DeviceStatusLogger
             logInfoWriter("-------------------------------------------");
             logInfoWriter(" Device Status Logger v" + versionNumber);
             logInfoWriter("-------------------------------------------");
-            
 
-       
+
+   
+
+
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
             string clientSecret = Environment.GetEnvironmentVariable("clientSecret");
@@ -186,142 +188,47 @@ namespace DeviceStatusLogger
             else
             {
                 //send data to MQTT
-                logInfoWriter("Starting loop and sending data to MQTT");
+                LoggerHelper.LogInfoWriter(logger, "Starting loop and sending data to MQTT");
 
-                MqttClient mqttClient;
+                MqttClient mqttClient = DeviceStatusMQTT.DeviceStatusMQTTHelper.GetMqttClient(mqttServerAddress);
 
-                logInfoWriter(string.Format("Creating MQTT Client pointing to {0} broker.", mqttServerAddress));
-
-                // create client instance
-                mqttClient = new MqttClient(mqttServerAddress);
-
-                logInfoWriter("Connecting to MQTT Broker...");
-
-                try
+                if (mqttClient == null)
                 {
-                    //connect to the broker
-                    var connectionResult = mqttClient.Connect("DeviceStatusLoggerClient", null, null, true, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE,
-                        true, "deviceStatus/status", "offline", true, 90);
-
-                    logInfoWriter(string.Format("Connection result: {0}", connectionResult));
-                }
-                catch (Exception ex)
-                {
-                    logFatalWriter(string.Format("Error connecting to the MQTT Broker.\n{0}", ex.ToString()));
-                    return;
-                }
-
-                if (mqttClient.IsConnected)
-                {
-                    logInfoWriter("MQTT Client is connected properly. Updating online status.");
-
-                    //ok just publish you are online properly now!!
-                    mqttClient.Publish("deviceStatus/status", Encoding.UTF8.GetBytes("running"), MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                    while (true)
-                    {
-                        deviceDetailsList = await getDeviceDetails(accessToken, edgeManagerBaseUrl);
-
-                        if (deviceDetailsList != null)
-                        {
-                            var deviceCsvList = (from device in deviceDetailsList
-                                                where device.deviceInfoStatus.simInfo != null &&
-                                                device.deviceInfoStatus.cellularStatus != null
-                                                 select DeviceStatusListCSV.FromDevice(device)).ToList();
-
-                            logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
-
-                            var timeStamp = DateTimeHelper.DateTimeToUnixTime(DateTime.UtcNow).ToString();
-
-                            foreach (var dev in deviceCsvList)
-                            {
-                                var topic = string.Format("deviceStatus/{0}/DeviceName", dev.DeviceID);
-                                var value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}", 
-                                    dev.DeviceName,timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-                                                            
-                                topic = string.Format("deviceStatus/{0}/mno", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.mno, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-                                
-                                topic = string.Format("deviceStatus/{0}/IPv6", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.IPv6, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-                                
-                                topic = string.Format("deviceStatus/{0}/networkMode", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.networkMode, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                                topic = string.Format("deviceStatus/{0}/iccid", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.iccid, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                                topic = string.Format("deviceStatus/{0}/imei", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.imei, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                                topic = string.Format("deviceStatus/{0}/imsi", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.imsi, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                                topic = string.Format("deviceStatus/{0}/rscp", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.rscp, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                                topic = string.Format("deviceStatus/{0}/rsrp", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.rsrp, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                                topic = string.Format("deviceStatus/{0}/rsrq", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.rsrq, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                                topic = string.Format("deviceStatus/{0}/rssi", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.rssi, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                                topic = string.Format("deviceStatus/{0}/sinr", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.sinr, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
-                                topic = string.Format("deviceStatus/{0}/Status", dev.DeviceID);
-                                value = Encoding.UTF8.GetBytes(string.Format("{{\"Value\"=\"{0}\",\"TimeStamp\"=\"{1}\"}}",
-                                    dev.Status, timeStamp));
-                                mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-                            }
-
-                            logInfoWriter("  Data sent to MQTT", ConsoleColor.Green);
-                        }
-
-                        System.Threading.Thread.Sleep(TimeSpan.FromMinutes(5));
-
-                    } //end of while...                    
-                }
-                else
-                {
-                    logFatalWriter("MQTT Client not connected to the Broker.");
                     Environment.Exit((int)ExitCode.MQTTNotConnected);
                 }
-                
+              
+                while (true)
+                {
+                    deviceDetailsList = await getDeviceDetails(accessToken, edgeManagerBaseUrl);
+                    
+                    if (deviceDetailsList != null)
+                    {
+                        var deviceCsvList = (from device in deviceDetailsList
+                                            where device.deviceInfoStatus.simInfo != null &&
+                                            device.deviceInfoStatus.cellularStatus != null
+                                                select device).ToList();
+
+                        logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
+
+                        var timeStamp = DateTime.UtcNow;
+
+                        foreach (var dev in deviceCsvList)
+                        {
+                            DeviceStatusMQTT.DeviceStatusMQTTHelper.PushMQTTDeviceDetails(mqttClient, dev, timeStamp);
+                        }
+
+                        LoggerHelper.LogInfoWriter(logger, "  Data sent to MQTT", ConsoleColor.Green);
+                    }
+
+                    System.Threading.Thread.Sleep(TimeSpan.FromMinutes(5));
+
+                } //end of while...                    
+                 
             }
 
             cleanReturn(ExitCode.Success);
         }
-
         
-
-
 
         static async Task<List<DeviceDetails>> getDeviceDetails(UAAToken accessToken, string edgeManagerBaseUrl)
         {
