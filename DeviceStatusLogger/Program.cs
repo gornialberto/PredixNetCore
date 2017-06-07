@@ -304,7 +304,7 @@ namespace DeviceStatusLogger
                             logInfoWriter("  Data sent to MQTT", ConsoleColor.Green);
                         }
 
-                        System.Threading.Thread.Sleep(TimeSpan.FromMinutes(2));
+                        System.Threading.Thread.Sleep(TimeSpan.FromMinutes(5));
 
                     } //end of while...                    
                 }
