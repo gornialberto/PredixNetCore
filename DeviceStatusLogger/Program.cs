@@ -33,11 +33,8 @@ namespace DeviceStatusLogger
             logInfoWriter("-------------------------------------------");
             logInfoWriter(" Device Status Logger v" + versionNumber);
             logInfoWriter("-------------------------------------------");
-
-
             
 
-           
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
@@ -216,7 +213,7 @@ namespace DeviceStatusLogger
                         DeviceStatus.DeviceStatusHelper.PublishMQTTDeviceList(mqttClient, deviceCsvList, timeStamp);
 
                         //logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
-                        LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} devices. Sending data to MQTT", deviceCsvList.Count));
+                        LoggerHelper.LogInfoWriter(logger, string.Format("  Sending deetails to MQTT for {0} devices at {1}", deviceCsvList.Count, timeStamp));
 
                         foreach (var dev in deviceCsvList)
                         {
