@@ -284,6 +284,12 @@ namespace DeviceStatus
                 string messageString = System.Text.Encoding.UTF8.GetString(e.Message);
                 var liveDeviceData = ValueTimeStamp.FromJSON(messageString);
 
+                if (liveDeviceData == null)
+                {
+                    LoggerHelper.LogErrorWriter(logger, string.Format("Impossible to deserialize data for '{0}' - topic {1}",
+                        deviceID, topicType));
+                }
+
                 if (currentDeviceData != null)
                 {
                     if (liveDeviceData.TimeStamp > currentDeviceData.TimeStamp)
@@ -384,6 +390,9 @@ namespace DeviceStatus
 
                 mqttClient.Unsubscribe(topicToUnSubscribe.ToArray());
             }
+
+            CurrentlySubscribedDeviceIdList.Clear();
+            CurrentlySubscribedDeviceIdList.AddRange(LatestDeviceIdList);
         }
     }
 }
