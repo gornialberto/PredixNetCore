@@ -35,19 +35,22 @@ namespace DeviceStatusLogger
             logInfoWriter("-------------------------------------------");
 
 
-            Environment.SetEnvironmentVariable("baseUAAUrl", "https://schindler-dev.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io");
-            Environment.SetEnvironmentVariable("clientID", "em-d-app-client");
-            Environment.SetEnvironmentVariable("clientSecret", "9d9T4vthclUgS6J");
-            Environment.SetEnvironmentVariable("edgeManagerBaseUrl", "https://em-d.schindler.edgemanager-d.run.aws-eu-central-1-pr.ice.predix.io");
+            
+
+           
+
+            string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
+            string clientID = Environment.GetEnvironmentVariable("clientID");
+            string clientSecret = Environment.GetEnvironmentVariable("clientSecret");
+            string edgeManagerBaseUrl = Environment.GetEnvironmentVariable("edgeManagerBaseUrl");
 
             //this is optional if not provided the MQTT address and port is needed! 
-            //Environment.SetEnvironmentVariable("csvFilePath", "C:\\Users\\dev\\Documents\\DeviceStatusExport_06_06_2017.csv");
-            Environment.SetEnvironmentVariable("mqttServerAddress", "77.95.143.115");
+            string csvFilePath = Environment.GetEnvironmentVariable("csvFilePath");
+
+            //mqtt server is optional only if not writing to CSV!
+            string mqttServerAddress = Environment.GetEnvironmentVariable("mqttServerAddress");
 
 
-
-
-       
             bool inputValid = true;
 
             if (string.IsNullOrEmpty(baseUAAUrl))
