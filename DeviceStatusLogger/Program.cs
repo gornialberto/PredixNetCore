@@ -34,20 +34,20 @@ namespace DeviceStatusLogger
             logInfoWriter(" Device Status Logger v" + versionNumber);
             logInfoWriter("-------------------------------------------");
 
-           
 
-            string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
-            string clientID = Environment.GetEnvironmentVariable("clientID");
-            string clientSecret = Environment.GetEnvironmentVariable("clientSecret");
-            string edgeManagerBaseUrl = Environment.GetEnvironmentVariable("edgeManagerBaseUrl");
+            Environment.SetEnvironmentVariable("baseUAAUrl", "https://schindler-dev.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io");
+            Environment.SetEnvironmentVariable("clientID", "em-d-app-client");
+            Environment.SetEnvironmentVariable("clientSecret", "9d9T4vthclUgS6J");
+            Environment.SetEnvironmentVariable("edgeManagerBaseUrl", "https://em-d.schindler.edgemanager-d.run.aws-eu-central-1-pr.ice.predix.io");
 
             //this is optional if not provided the MQTT address and port is needed! 
-            string csvFilePath = Environment.GetEnvironmentVariable("csvFilePath");
-
-            //mqtt server is optional only if not writing to CSV!
-            string mqttServerAddress = Environment.GetEnvironmentVariable("mqttServerAddress");
+            //Environment.SetEnvironmentVariable("csvFilePath", "C:\\Users\\dev\\Documents\\DeviceStatusExport_06_06_2017.csv");
+            Environment.SetEnvironmentVariable("mqttServerAddress", "77.95.143.115");
 
 
+
+
+       
             bool inputValid = true;
 
             if (string.IsNullOrEmpty(baseUAAUrl))
@@ -188,7 +188,7 @@ namespace DeviceStatusLogger
                 //send data to MQTT
                 LoggerHelper.LogInfoWriter(logger, "Starting loop and sending data to MQTT");
 
-                MqttClient mqttClient = DeviceStatusMQTT.DeviceStatusMQTTHelper.GetMqttClient(mqttServerAddress, "DeviceStatusLoggerClient");
+                MqttClient mqttClient = DeviceStatus.DeviceStatusHelper.GetMqttClient(mqttServerAddress, "DeviceStatusLoggerClient");
 
                 if (mqttClient == null)
                 {
@@ -202,19 +202,22 @@ namespace DeviceStatusLogger
                     if (deviceDetailsList != null)
                     {
                         var deviceCsvList = (from device in deviceDetailsList
-                                            where device.deviceInfoStatus.simInfo != null &&
-                                            device.deviceInfoStatus.cellularStatus != null
+
                                                 select device).ToList();
+
+                        //where device.deviceInfoStatus.simInfo != null &&
+                        //device.deviceInfoStatus.cellularStatus != null
 
                         var timeStamp = DateTime.UtcNow;
 
-                        DeviceStatusMQTT.DeviceStatusMQTTHelper.PublishMQTTDeviceList(mqttClient, deviceCsvList, timeStamp);
+                        DeviceStatus.DeviceStatusHelper.PublishMQTTDeviceList(mqttClient, deviceCsvList, timeStamp);
 
-                        logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
-                        
+                        //logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
+                        LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} devices. Sending data to MQTT", deviceCsvList.Count));
+
                         foreach (var dev in deviceCsvList)
                         {
-                            DeviceStatusMQTT.DeviceStatusMQTTHelper.PublishMQTTDeviceDetails(mqttClient, dev, timeStamp);
+                            DeviceStatus.DeviceStatusHelper.PublishMQTTDeviceDetails(mqttClient, dev, timeStamp);
                         }
 
                         LoggerHelper.LogInfoWriter(logger, "  Data sent to MQTT", ConsoleColor.Green);

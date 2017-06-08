@@ -17,7 +17,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GenerateTimeSeriesTestData"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceStatusLogger", "DeviceStatusLogger\DeviceStatusLogger.csproj", "{CE12BAED-7BE6-4297-B803-DD755291F248}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceStatusMQTT", "DeviceStatusMQTT\DeviceStatusMQTT.csproj", "{34A5135E-A025-43E0-8F0E-79C1C8D1B0C2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceStatus", "DeviceStatus\DeviceStatus.csproj", "{34A5135E-A025-43E0-8F0E-79C1C8D1B0C2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceStatusAnalytics", "DeviceStatusAnalytics\DeviceStatusAnalytics.csproj", "{87E19043-5253-4E42-9E69-2EEE53C4D4F3}"
 EndProject

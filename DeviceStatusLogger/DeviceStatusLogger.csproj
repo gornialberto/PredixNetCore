@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DeviceStatusMQTT\DeviceStatusMQTT.csproj" />
+    <ProjectReference Include="..\DeviceStatus\DeviceStatus.csproj" />
     <ProjectReference Include="..\PredixCommon\PredixCommon.csproj" />
   </ItemGroup>
 

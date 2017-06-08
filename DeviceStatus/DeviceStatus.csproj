@@ -7,7 +7,9 @@
   <ItemGroup>
     <PackageReference Include="log4net" Version="2.0.8" />
     <PackageReference Include="M2MqttDotnetCore" Version="1.0.6" />
+    <PackageReference Include="MailKit" Version="1.16.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="1.1.2" />
+    <PackageReference Include="ServiceStack.Redis.Core" Version="1.0.42" />
   </ItemGroup>
 
   <ItemGroup>

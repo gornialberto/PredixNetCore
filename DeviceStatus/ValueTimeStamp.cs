@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace DeviceStatusMQTT
+namespace DeviceStatus
 {
     /// <summary>
     /// DTO class   
@@ -69,6 +69,7 @@ namespace DeviceStatusMQTT
             catch (Exception ex)
             {
                 LoggerHelper.LogErrorWriter(logger, string.Format("Error deserializing Device Details JSON.\n\n{0}", json));
+                LoggerHelper.LogErrorWriter(logger, string.Format(ex.ToString()));
                 return null;
             }
         }

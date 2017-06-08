@@ -14,9 +14,7 @@ namespace DeviceStatusAnalytics
     class Program
     {
         private static ILog logger = LogManager.GetLogger(typeof(Program));
-
-        private static ExitCode lastExitCode = ExitCode.Success;
-
+        
         static void Main(string[] args)
         {
             var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
@@ -31,11 +29,13 @@ namespace DeviceStatusAnalytics
             LoggerHelper.LogInfoWriter(logger,"-------------------------------------------");
 
             Environment.SetEnvironmentVariable("mqttServerAddress", "77.95.143.115");
+            Environment.SetEnvironmentVariable("redisServerAddress", "77.95.143.115");
 
 
             //mqtt server is optional only if not writing to CSV!
             string mqttServerAddress = Environment.GetEnvironmentVariable("mqttServerAddress");
-
+            string redisServerAddress = Environment.GetEnvironmentVariable("redisServerAddress");
+            
             bool inputValid = true;
 
             if (string.IsNullOrEmpty(mqttServerAddress))
@@ -51,7 +51,7 @@ namespace DeviceStatusAnalytics
                 try
                 {
                     //now execute the async part...              
-                    MainAsync(mqttServerAddress).Wait();
+                    MainAsync(mqttServerAddress, redisServerAddress).Wait();
                 }
                 catch (Exception ex)
                 {
@@ -69,18 +69,20 @@ namespace DeviceStatusAnalytics
 
         
 
-        static async Task MainAsync(string mqttServerAddress)
+        static async Task MainAsync(string mqttServerAddress, string redisServerAddress)
         {
             LoggerHelper.LogInfoWriter(logger, "Starting...");
 
-            MqttClient mqttClient = DeviceStatusMQTT.DeviceStatusMQTTHelper.GetMqttClient(mqttServerAddress, "DeviceSTatusAnalytics");
+            MqttClient mqttClient = DeviceStatus.DeviceStatusHelper.GetMqttClient(mqttServerAddress, "DeviceSTatusAnalytics");
 
             if (mqttClient == null)
             {
                 Environment.Exit((int)ExitCode.MQTTNotConnected);
             }
 
-            DeviceStatusMQTT.DeviceStatusMQTTHelper.SubscribeDeviceStatusTopics(mqttClient);
+            DeviceStatus.DeviceStatusHelper.ConnectRedisService(redisServerAddress);
+
+            DeviceStatus.DeviceStatusHelper.SubscribeDeviceStatusTopics(mqttClient);
 
             while (true)
             {

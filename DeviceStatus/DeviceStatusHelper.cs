@@ -8,12 +8,15 @@ using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using ServiceStack.Redis;
+using MimeKit;
+using MailKit.Net.Smtp;
 
-namespace DeviceStatusMQTT
+namespace DeviceStatus
 {
-    public class DeviceStatusMQTTHelper
+    public class DeviceStatusHelper
     {
-        private static ILog logger = LogManager.GetLogger(typeof(DeviceStatusMQTTHelper));
+        private static ILog logger = LogManager.GetLogger(typeof(DeviceStatusHelper));
 
         /// <summary>
         /// Get MQTT Client
@@ -174,6 +177,13 @@ namespace DeviceStatusMQTT
             }
         }
 
+
+        /// <summary>
+        /// Publish the list of Devices found in EM
+        /// </summary>
+        /// <param name="mqttClient"></param>
+        /// <param name="deviceCsvList"></param>
+        /// <param name="timeStamp"></param>
         public static void PublishMQTTDeviceList(MqttClient mqttClient, List<DeviceDetails> deviceCsvList, DateTime timeStamp)
         {
             var topic = DeviceStatusTopics.MQTTDeviceListTopic;
@@ -187,7 +197,37 @@ namespace DeviceStatusMQTT
         }
 
 
-        public static List<string> SubscribedDeviceIDs = new List<string>();
+
+
+
+
+
+
+
+
+        public static List<string> LatestDeviceIdList = new List<string>();
+
+        public static List<string> CurrentlySubscribedDeviceIdList = new List<string>();
+
+
+
+        public static RedisManagerPool RedisManager = null;
+        public static IRedisClient RedisClient = null;
+
+        /// <summary>
+        /// Connect to the Redis Service
+        /// </summary>
+        /// <param name="redisHost"></param>
+        public static void ConnectRedisService(string redisHost)
+        {
+            LoggerHelper.LogInfoWriter(logger, "Connecting to Redis...");
+            RedisManager = new RedisManagerPool(redisHost);
+
+            RedisClient = RedisManager.GetClient();
+
+            LoggerHelper.LogInfoWriter(logger, "  Connected!", ConsoleColor.Green);
+        }
+
 
         /// <summary>
         /// Subscribe to the Device List topic
@@ -197,7 +237,6 @@ namespace DeviceStatusMQTT
         {
             mqttClient.MqttMsgPublishReceived += MqttClient_DeviceTopicsReceived;
             mqttClient.Subscribe(new string[] { DeviceStatusTopics.MQTTDeviceListTopic }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE });
-
         }
 
         /// <summary>
@@ -220,54 +259,131 @@ namespace DeviceStatusMQTT
 
                 LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} Device IDs", deviceList.Count));
 
-                //now update the subscription if needed!
+                LatestDeviceIdList.Clear();
+                LatestDeviceIdList.AddRange(deviceList);
 
-                ////check for newely added devices
-                //var addedDevices = from dev in deviceList
-                //                   where !SubscribedDeviceIDs.Any(d => d == dev)
-                //                   select dev;
-
-                //LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} NEW Device IDs", addedDevices.Count()), ConsoleColor.Green);
-
-                //var removedDevices = from dev in SubscribedDeviceIDs
-                //                     where !deviceList.Any(d => d == dev)
-                //                     select dev;
-
-                //LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} REMOVED Device IDs", removedDevices.Count()), ConsoleColor.Red);
-
-                ////ok now subscribe / unsubscribe...
-
-                //if (addedDevices.Count() > 0)
-                //{
-                //    var topicToSubscribe = (from dev in addedDevices
-                //                           select DeviceStatusTopics.GetTopic(dev, DeviceStatusTopics.IPv6)).ToArray();
-
-                //    var qosToSubscribe = (from dev in removedDevices
-                //                         select MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE).ToArray();
-
-                //    (sender as MqttClient).Subscribe(topicToSubscribe, qosToSubscribe );
-                //}
-
-                //if(removedDevices.Count() > 0)
-                //{
-                //    var topicToUnSubscribe = from dev in removedDevices
-                //                             select DeviceStatusTopics.GetTopic(dev, DeviceStatusTopics.IPv6);
-
-                //    (sender as MqttClient).Unsubscribe(topicToUnSubscribe.ToArray());
-                //}
-
-                SubscribedDeviceIDs.Clear();
-                SubscribedDeviceIDs.AddRange(deviceList);
+                UpdateSubscribedTopic(sender as MqttClient);
             }
 
-            if (e.Topic.Contains(DeviceStatusTopics.IPv6))
+
+
+            if ((e.Topic.Contains(DeviceStatusTopics.IPv6)) || (e.Topic.Contains(DeviceStatusTopics.networkMode)))
             {
                 //ipv6 update!!!  let's see...
                 var splittedTopic = e.Topic.Split('/');
                 var deviceID = splittedTopic[1];
+                var topicType = splittedTopic[2];
 
+                //check if IPv6 is changed for the device ID...
+                string redisKey = deviceID + "_" + topicType;
+                
+                //data from Redis
+                var currentDeviceData = RedisClient.Get<ValueTimeStamp>(redisKey);
+
+                //data live from MQTT
+                string messageString = System.Text.Encoding.UTF8.GetString(e.Message);
+                var liveDeviceData = ValueTimeStamp.FromJSON(messageString);
+
+                if (currentDeviceData != null)
+                {
+                    if (liveDeviceData.TimeStamp > currentDeviceData.TimeStamp)
+                    {
+                        //ok data is fresh! at least update the Redis data
+                        RedisClient.Set<ValueTimeStamp>(redisKey, liveDeviceData);
+
+                        if ((liveDeviceData.Value as string) != (currentDeviceData.Value as string))
+                        {
+                            //ALLLLLLERRTT!! something is changed!
+                            string message = string.Format("Something is changed for '{0}': '{1}' was '{2}' now is '{3}'",
+                                deviceID, topicType, currentDeviceData.Value, liveDeviceData.Value);
+                            
+                            LoggerHelper.LogInfoWriter(logger, message, ConsoleColor.Yellow);
+
+                            SendEmail(message);
+                        }
+                    }
+                }
+                else
+                {
+                    //just update the redis db
+                    RedisClient.Set<ValueTimeStamp>(redisKey, liveDeviceData);
+                }
+            }       
+        }
+
+        public static void SendEmail(string messageBody)
+        {
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress("Predix Bot", "predixbot@gmail.com"));
+            message.To.Add(new MailboxAddress("Gorni Alberto", "gorni.alberto@gmail.com"));
+            //message.To.Add(new MailboxAddress("Nicolandrea Costa", "nicolandrea.costa@ge.com"));
+            message.Subject = "[Schindler Notification]";
+
+            message.Body = new TextPart("plain")
+            {
+                Text = messageBody
+            };
+
+            using (var client = new SmtpClient())
+            {
+                // For demo-purposes, accept all SSL certificates (in case the server supports STARTTLS)
+                client.ServerCertificateValidationCallback = (s, c, h, e) => true;
+
+                client.Connect("smtp.gmail.com", 465,true);
+
+                // Note: since we don't have an OAuth2 token, disable
+                // the XOAUTH2 authentication mechanism.
+                client.AuthenticationMechanisms.Remove("XOAUTH2");
+
+                // Note: only needed if the SMTP server requires authentication
+                client.Authenticate("predixbot", "Lokiju666");
+
+                client.Send(message);
+                client.Disconnect(true);
             }
-            
+
+
+        }
+
+        private static void UpdateSubscribedTopic(MqttClient mqttClient)
+        {
+            //now update the subscription if needed!
+
+            //check for newely added devices
+            var addedDevices = from dev in LatestDeviceIdList
+                               where !CurrentlySubscribedDeviceIdList.Any(d => d == dev)
+                               select dev;
+
+            var removedDevices = from dev in CurrentlySubscribedDeviceIdList
+                                 where !LatestDeviceIdList.Any(d => d == dev)
+                                 select dev;
+
+            //ok now subscribe / unsubscribe...
+
+            if (addedDevices.Count() > 0)
+            {
+                LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} NEW Device IDs", addedDevices.Count()), ConsoleColor.Green);
+
+
+                var topicToSubscribe = (from dev in addedDevices
+                                        select DeviceStatusTopics.GetTopic(dev, DeviceStatusTopics.IPv6)).ToArray();
+
+                var qosToSubscribe = (from dev in addedDevices
+                                      select MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE).ToArray();
+
+                mqttClient.Subscribe(topicToSubscribe, qosToSubscribe); 
+            }
+
+            if (removedDevices.Count() > 0)
+            {
+                LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} REMOVED Device IDs", removedDevices.Count()), ConsoleColor.Red);
+
+
+                var topicToUnSubscribe = from dev in removedDevices
+                                         select DeviceStatusTopics.GetTopic(dev, DeviceStatusTopics.IPv6);
+
+                mqttClient.Unsubscribe(topicToUnSubscribe.ToArray());
+            }
         }
     }
 }
