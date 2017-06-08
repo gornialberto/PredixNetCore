@@ -274,6 +274,11 @@ namespace DeviceStatus
                 var deviceID = splittedTopic[1];
                 var topicType = splittedTopic[2];
 
+                if (deviceID == "albertogorni-vcube-17-1-1-volte-test")
+                {
+
+                }
+
                 //check if IPv6 is changed for the device ID...
                 string redisKey = deviceID + "_" + topicType;
                 
@@ -300,8 +305,8 @@ namespace DeviceStatus
                         if ((liveDeviceData.Value as string) != (currentDeviceData.Value as string))
                         {
                             //ALLLLLLERRTT!! something is changed!
-                            string message = string.Format("Something is changed for '{0}': '{1}' was '{2}' now is '{3}'",
-                                deviceID, topicType, currentDeviceData.Value, liveDeviceData.Value);
+                            string message = string.Format("Something is changed for '{0}': '{1}' was '{2}' at {3} now (at {4}) is '{5}'",
+                                deviceID, topicType, currentDeviceData.Value, currentDeviceData.TimeStamp,  liveDeviceData.TimeStamp, liveDeviceData.Value);
                             
                             LoggerHelper.LogInfoWriter(logger, message, ConsoleColor.Yellow);
 
