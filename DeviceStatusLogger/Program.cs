@@ -34,9 +34,7 @@ namespace DeviceStatusLogger
             logInfoWriter(" Device Status Logger v" + versionNumber);
             logInfoWriter("-------------------------------------------");
 
-
-          
-
+           
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
@@ -149,7 +147,7 @@ namespace DeviceStatusLogger
                 //just CSV write...
                 logInfoWriter("Writing to CSV one shot data capture...");
 
-                deviceDetailsList = await getDeviceDetails(accessToken, edgeManagerBaseUrl);
+                deviceDetailsList = await getDeviceDetails(baseUAAUrl, clientID, clientSecret, accessToken, edgeManagerBaseUrl);
 
                 if (deviceDetailsList != null)
                 {
@@ -190,7 +188,7 @@ namespace DeviceStatusLogger
                 //send data to MQTT
                 LoggerHelper.LogInfoWriter(logger, "Starting loop and sending data to MQTT");
 
-                MqttClient mqttClient = DeviceStatusMQTT.DeviceStatusMQTTHelper.GetMqttClient(mqttServerAddress);
+                MqttClient mqttClient = DeviceStatusMQTT.DeviceStatusMQTTHelper.GetMqttClient(mqttServerAddress, "DeviceStatusLoggerClient");
 
                 if (mqttClient == null)
                 {
@@ -199,7 +197,7 @@ namespace DeviceStatusLogger
               
                 while (true)
                 {
-                    deviceDetailsList = await getDeviceDetails(accessToken, edgeManagerBaseUrl);
+                    deviceDetailsList = await getDeviceDetails( baseUAAUrl, clientID, clientSecret, accessToken, edgeManagerBaseUrl);
                     
                     if (deviceDetailsList != null)
                     {
@@ -232,7 +230,7 @@ namespace DeviceStatusLogger
         }
         
 
-        static async Task<List<DeviceDetails>> getDeviceDetails(UAAToken accessToken, string edgeManagerBaseUrl)
+        static async Task<List<DeviceDetails>> getDeviceDetails(string baseUAAUrl, string clientID, string clientSecret, UAAToken accessToken, string edgeManagerBaseUrl)
         {
             logInfoWriter("Querying Edge Manager for Device List: " + edgeManagerBaseUrl);
 
@@ -249,6 +247,43 @@ namespace DeviceStatusLogger
                 lastExitCode = ExitCode.EdgeManagerIssue;
                 return null;
             }
+
+            if (EdgeManagerHelper.LatestHTTPStatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                LoggerHelper.LogInfoWriter(logger, "UAA Token was expired? Let's try to login agian...");
+
+                try
+                {
+                    accessToken = await UAAHelper.GetClientCredentialsGrantAccessToken(baseUAAUrl, clientID, clientSecret);
+
+                    if (accessToken != null)
+                    {
+                        logInfoWriter("  Token obtained!", ConsoleColor.Green);
+                    }
+                    else
+                    {
+                        logFatalWriter("  Error obtaining Token");
+                        cleanReturn(ExitCode.UAAIssue);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logFatalWriter(string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                    cleanReturn(ExitCode.UAAIssue);
+                }
+                
+                try
+                {
+                    deviceList = await EdgeManagerHelper.GetDeviceList(edgeManagerBaseUrl, accessToken);
+                }
+                catch (Exception ex)
+                {
+                    logFatalWriter(string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                    lastExitCode = ExitCode.EdgeManagerIssue;
+                    return null;
+                }
+            }
+
 
             logInfoWriter("  Found " + deviceList.Devices.Count() + " devices.", ConsoleColor.Green);
 

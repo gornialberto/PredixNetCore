@@ -20,7 +20,7 @@ namespace DeviceStatusMQTT
         /// </summary>
         /// <param name="mqttServerAddress"></param>
         /// <returns></returns>
-        public static MqttClient GetMqttClient(string mqttServerAddress)
+        public static MqttClient GetMqttClient(string mqttServerAddress, string clientId)
         {
             MqttClient mqttClient;
 
@@ -34,20 +34,20 @@ namespace DeviceStatusMQTT
             try
             {
                 //connect to the broker
-                var connectionResult = mqttClient.Connect("DeviceStatusLoggerClient", null, null, true, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE,
+                var connectionResult = mqttClient.Connect(clientId, null, null, true, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE,
                     true, DeviceStatusTopics.MQTTStatusTopic, "offline", true, 90);
 
-                LoggerHelper.LogInfoWriter(logger, string.Format("Connection result: {0}", connectionResult));
+                LoggerHelper.LogInfoWriter(logger, string.Format("  Connection result: {0}", connectionResult));
             }
             catch (Exception ex)
             {
-                LoggerHelper.LogFatalWriter(logger, string.Format("Error connecting to the MQTT Broker.\n{0}", ex.ToString()));
+                LoggerHelper.LogFatalWriter(logger, string.Format("  Error connecting to the MQTT Broker.\n{0}", ex.ToString()));
                 return null;
             }
 
             if (mqttClient.IsConnected)
             {
-                LoggerHelper.LogInfoWriter(logger, "MQTT Client is connected properly. Updating online status.");
+                LoggerHelper.LogInfoWriter(logger, "  MQTT Client is connected properly. Updating online status.", ConsoleColor.Green);
 
                 //ok just publish you are online properly now!!
                 mqttClient.Publish(DeviceStatusTopics.MQTTStatusTopic, Encoding.UTF8.GetBytes("running"), MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
@@ -56,7 +56,7 @@ namespace DeviceStatusMQTT
             }
             else
             {
-                LoggerHelper.LogFatalWriter(logger, "MQTT Client not connected to the Broker.");
+                LoggerHelper.LogFatalWriter(logger, "  MQTT Client not connected to the Broker.");
                 return null;
             }
         }
@@ -184,6 +184,90 @@ namespace DeviceStatusMQTT
             var jsonPayload = new ValueTimeStamp(deviceIdList, timeStamp).ToJSON();
             var value = Encoding.UTF8.GetBytes(jsonPayload);
             mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
+        }
+
+
+        public static List<string> SubscribedDeviceIDs = new List<string>();
+
+        /// <summary>
+        /// Subscribe to the Device List topic
+        /// </summary>
+        /// <param name="mqttClient"></param>
+        public static void SubscribeDeviceStatusTopics(MqttClient mqttClient)
+        {
+            mqttClient.MqttMsgPublishReceived += MqttClient_DeviceTopicsReceived;
+            mqttClient.Subscribe(new string[] { DeviceStatusTopics.MQTTDeviceListTopic }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE });
+
+        }
+
+        /// <summary>
+        /// handler message received!
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private static void MqttClient_DeviceTopicsReceived(object sender,
+            uPLibrary.Networking.M2Mqtt.Messages.MqttMsgPublishEventArgs e)
+        {
+            if (e.Topic == DeviceStatusTopics.MQTTDeviceListTopic)
+            {
+                string messageString = System.Text.Encoding.UTF8.GetString(e.Message);
+
+                var decodedValue = ValueTimeStamp.FromJSON(messageString);
+
+                var deviceListString = decodedValue.Value.ToString();
+                
+                var deviceList = JsonConvert.DeserializeObject<List<string>>(deviceListString);
+
+                LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} Device IDs", deviceList.Count));
+
+                //now update the subscription if needed!
+
+                ////check for newely added devices
+                //var addedDevices = from dev in deviceList
+                //                   where !SubscribedDeviceIDs.Any(d => d == dev)
+                //                   select dev;
+
+                //LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} NEW Device IDs", addedDevices.Count()), ConsoleColor.Green);
+
+                //var removedDevices = from dev in SubscribedDeviceIDs
+                //                     where !deviceList.Any(d => d == dev)
+                //                     select dev;
+
+                //LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} REMOVED Device IDs", removedDevices.Count()), ConsoleColor.Red);
+
+                ////ok now subscribe / unsubscribe...
+
+                //if (addedDevices.Count() > 0)
+                //{
+                //    var topicToSubscribe = (from dev in addedDevices
+                //                           select DeviceStatusTopics.GetTopic(dev, DeviceStatusTopics.IPv6)).ToArray();
+
+                //    var qosToSubscribe = (from dev in removedDevices
+                //                         select MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE).ToArray();
+
+                //    (sender as MqttClient).Subscribe(topicToSubscribe, qosToSubscribe );
+                //}
+
+                //if(removedDevices.Count() > 0)
+                //{
+                //    var topicToUnSubscribe = from dev in removedDevices
+                //                             select DeviceStatusTopics.GetTopic(dev, DeviceStatusTopics.IPv6);
+
+                //    (sender as MqttClient).Unsubscribe(topicToUnSubscribe.ToArray());
+                //}
+
+                SubscribedDeviceIDs.Clear();
+                SubscribedDeviceIDs.AddRange(deviceList);
+            }
+
+            if (e.Topic.Contains(DeviceStatusTopics.IPv6))
+            {
+                //ipv6 update!!!  let's see...
+                var splittedTopic = e.Topic.Split('/');
+                var deviceID = splittedTopic[1];
+
+            }
+            
         }
     }
 }

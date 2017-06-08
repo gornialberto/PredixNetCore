@@ -16,6 +16,8 @@ namespace PredixCommon
     {
         private static ILog logger = LogManager.GetLogger(typeof(EdgeManagerHelper));
 
+        public static System.Net.HttpStatusCode LatestHTTPStatusCode = HttpStatusCode.OK;
+
         /// <summary>
         /// GetClientCredentialsGrantAccessTokenBySvcOpsClient
         /// 
@@ -68,6 +70,8 @@ namespace PredixCommon
 
             logger.Debug("Http Request executed");
 
+            LatestHTTPStatusCode = httpResponseMessage.StatusCode;
+
             if (httpResponseMessage.IsSuccessStatusCode)
             {
                 logger.Debug("Http Response Success Status Code " + httpResponseMessage.StatusCode);
@@ -89,7 +93,7 @@ namespace PredixCommon
                 }
             }
             else
-            {
+            {  
                 logger.Error("Http Response Failure Status Code " + httpResponseMessage.StatusCode);
             }
         }
@@ -117,6 +121,8 @@ namespace PredixCommon
             var httpResponseMessage = await httpClient.SendAsync(request);
 
             logger.Debug("Http Request executed");
+
+            LatestHTTPStatusCode = httpResponseMessage.StatusCode;
 
             if (httpResponseMessage.IsSuccessStatusCode)
             {
@@ -165,6 +171,8 @@ namespace PredixCommon
             var httpResponseMessage = await httpClient.SendAsync(request);
 
             logger.Debug("Http Request executed");
+
+            LatestHTTPStatusCode = httpResponseMessage.StatusCode;
 
             if (httpResponseMessage.IsSuccessStatusCode)
             {
