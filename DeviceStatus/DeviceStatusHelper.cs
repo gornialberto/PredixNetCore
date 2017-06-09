@@ -76,7 +76,11 @@ namespace DeviceStatus
             var topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.DeviceName);
             var value = Encoding.UTF8.GetBytes(new ValueTimeStamp(dev.name, timeStamp).ToJSON());
             mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
-
+            
+            topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.DeviceModel);
+            value = Encoding.UTF8.GetBytes(new ValueTimeStamp(dev.deviceModel, timeStamp).ToJSON());
+            mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
+            
             if (dev.deviceInfoStatus.dynamicStatus != null)
             {
                 if (dev.deviceInfoStatus.dynamicStatus.networkInfo != null)
@@ -209,6 +213,7 @@ namespace DeviceStatus
 
         public static List<string> CurrentlySubscribedDeviceIdList = new List<string>();
 
+        public static List<string> CurrentlyMonitoredTopicType = new List<string>();
 
 
         public static RedisManagerPool RedisManager = null;
@@ -237,6 +242,9 @@ namespace DeviceStatus
         {
             mqttClient.MqttMsgPublishReceived += MqttClient_DeviceTopicsReceived;
             mqttClient.Subscribe(new string[] { DeviceStatusTopics.MQTTDeviceListTopic }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE });
+
+            CurrentlyMonitoredTopicType.Add(DeviceStatusTopics.IPv6);
+            CurrentlyMonitoredTopicType.Add(DeviceStatusTopics.networkMode);
         }
 
         /// <summary>
@@ -266,24 +274,16 @@ namespace DeviceStatus
             }
 
 
-
-            if ((e.Topic.Contains(DeviceStatusTopics.IPv6)) || (e.Topic.Contains(DeviceStatusTopics.networkMode)))
+            //device model is not considered to be monitored...   we just add in the Redis for pure classification of the data for the Report
+            if (CurrentlyMonitoredTopicType.Any(i=> e.Topic.Contains(i)) || (e.Topic.Contains(DeviceStatusTopics.DeviceModel)))
             {
                 //ipv6 update!!!  let's see...
                 var splittedTopic = e.Topic.Split('/');
                 var deviceID = splittedTopic[1];
                 var topicType = splittedTopic[2];
-
-                if (deviceID == "albertogorni-vcube-17-1-1-volte-test")
-                {
-
-                }
-
-                //check if IPv6 is changed for the device ID...
-                string redisKey = deviceID + "_" + topicType;
                 
                 //data from Redis
-                var currentDeviceData = RedisClient.Get<ValueTimeStamp>(redisKey);
+                var currentDeviceData = getRedisLastValue(deviceID, topicType);
 
                 //data live from MQTT
                 string messageString = System.Text.Encoding.UTF8.GetString(e.Message);
@@ -294,32 +294,174 @@ namespace DeviceStatus
                     LoggerHelper.LogErrorWriter(logger, string.Format("Impossible to deserialize data for '{0}' - topic {1}",
                         deviceID, topicType));
                 }
-
-                if (currentDeviceData != null)
+                else
                 {
-                    if (liveDeviceData.TimeStamp > currentDeviceData.TimeStamp)
+                    if (currentDeviceData != null)
                     {
-                        //ok data is fresh! at least update the Redis data
-                        RedisClient.Set<ValueTimeStamp>(redisKey, liveDeviceData);
-
-                        if ((liveDeviceData.Value as string) != (currentDeviceData.Value as string))
+                        if (liveDeviceData.TimeStamp > currentDeviceData.TimeStamp)
                         {
-                            //ALLLLLLERRTT!! something is changed!
-                            string message = string.Format("Something is changed for '{0}': '{1}' was '{2}' at {3} now (at {4}) is '{5}'",
-                                deviceID, topicType, currentDeviceData.Value, currentDeviceData.TimeStamp,  liveDeviceData.TimeStamp, liveDeviceData.Value);
-                            
-                            LoggerHelper.LogInfoWriter(logger, message, ConsoleColor.Yellow);
+                            //ok data is fresh! at least update the Redis data
+                            updateRedisLastValue(deviceID, topicType, liveDeviceData);
 
-                            SendEmail(message);
+                            if ((liveDeviceData.Value as string) != (currentDeviceData.Value as string))
+                            {
+                                //ALLLLLLERRTT!! something is changed!
+                                string message = string.Format("The {0} is changed for '{1}': at {2} was '{3}' at {4} is '{5}'",
+                                    topicType, deviceID, currentDeviceData.TimeStamp, currentDeviceData.Value,
+                                    liveDeviceData.TimeStamp, liveDeviceData.Value);
+                            
+                                LoggerHelper.LogInfoWriter(logger, message, ConsoleColor.Yellow);
+
+                                //historicize on Redis the status change...
+                                updateRedisHistory(deviceID, topicType, liveDeviceData);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        //just update the redis db
+                        updateRedisLastValue(deviceID, topicType, liveDeviceData);
+                    
+                        //and the history as awell
+                        updateRedisHistory(deviceID, topicType, liveDeviceData);
+                    }
+                }
+            }       
+        }
+
+        private static ValueTimeStamp getRedisLastValue(string deviceID, string topicType)
+        {
+            string redisKeyLastValue = deviceID + "_" + topicType;
+
+            ValueTimeStamp lastValue = null;
+
+            try
+            {
+                lastValue = RedisClient.Get<ValueTimeStamp>(redisKeyLastValue);
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.LogErrorWriter(logger, string.Format("Error deserializing Last value from Redis for {0} {1}", deviceID, topicType));
+            }
+
+            return lastValue;
+        }
+
+        private static void updateRedisLastValue(string deviceID, string topicType, ValueTimeStamp liveDeviceData)
+        {
+            string redisKeyLastValue = deviceID + "_" + topicType;
+
+            RedisClient.Set<ValueTimeStamp>(redisKeyLastValue, liveDeviceData);
+        }
+
+        private static void updateRedisHistory(string deviceID, string topicType, ValueTimeStamp liveDeviceData)
+        {
+            //create the redis key
+            string redisKeyHistory = deviceID + "_" + topicType + "_History";
+
+            List<ValueTimeStamp> history = null;
+            try
+            {
+                history = RedisClient.Get<List<ValueTimeStamp>>(redisKeyHistory);
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.LogErrorWriter(logger, string.Format("Error deserializing History of value from Redis for {0} {1}", deviceID, topicType));
+            }
+            
+            if (history == null)
+            {
+                history = new List<ValueTimeStamp>();
+            }
+
+            //keep just the last 48 hours! 
+            history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(48)).ToList();
+
+            //add the last update..
+            history.Add(liveDeviceData);
+
+            //and save back on Redis..
+            RedisClient.Set<List<ValueTimeStamp>>(redisKeyHistory, history);
+        }
+
+
+        private static List<ValueTimeStamp> getRedisHistory(string deviceID, string topicType)
+        {
+            //create the redis key
+            string redisKeyHistory = deviceID + "_" + topicType + "_History";
+    
+            return RedisClient.Get<List<ValueTimeStamp>>(redisKeyHistory);
+        }
+
+
+        public static void CheckHistoryAndSendReport()
+        {
+            //when it was last report??
+            var lastReport = RedisClient.Get<DateTime?>("LastSchindlerDeviceReport");
+
+            if (lastReport != null)
+            {
+                if (lastReport < DateTime.UtcNow - TimeSpan.FromMinutes(10.0))
+                {
+                    createAndSendReport();
+                }
+            }
+            else
+            {
+                createAndSendReport();
+            }
+        }
+
+        /// <summary>
+        /// create and sent the report of the last 48 hours of changes
+        /// </summary>
+        private static void createAndSendReport()
+        {
+            LoggerHelper.LogInfoWriter(logger, "Creating and sending report...");
+            
+            var message = string.Empty;
+
+            message += "Schindler Report\n\n";
+
+            foreach (var topicType in CurrentlyMonitoredTopicType)
+            {
+                message += @"For the Topic '" + topicType + "' we have the following changes:\n";
+
+                bool someDevice = false;
+
+                foreach (var deviceID in CurrentlySubscribedDeviceIdList)
+                {
+                    var history = getRedisHistory(deviceID,topicType);
+
+                    if (history != null && history.Count > 0)
+                    {
+                        message += ("\n\n\nDevice: " + deviceID + "\n");
+
+                        someDevice = true;
+                        
+                        //keep just the last 48 hours! 
+                        history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(48)).ToList();
+
+                        foreach (var item in history)
+                        {
+                            message += string.Format("\n {0}", item.ToJSON());
                         }
                     }
                 }
-                else
+
+                if (!someDevice)
                 {
-                    //just update the redis db
-                    RedisClient.Set<ValueTimeStamp>(redisKey, liveDeviceData);
+                    message += "No changes for the Topic";
                 }
-            }       
+
+                message += "\n\n\n";
+            }
+
+            RedisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
+
+            SendEmail(message);
+
+            LoggerHelper.LogInfoWriter(logger, "  Done!", ConsoleColor.Green);
         }
 
         public static void SendEmail(string messageBody)

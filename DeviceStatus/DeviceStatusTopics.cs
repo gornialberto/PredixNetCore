@@ -16,6 +16,7 @@ namespace DeviceStatus
         public const string MQTTDeviceListTopic = "deviceStatus/DeviceList";
 
         public const string DeviceName = "DeviceName";
+        public const string DeviceModel = "DeviceModel";
         public const string mno = "mno";
         public const string IPv6 = "IPv6";
         public const string networkMode = "networkMode";

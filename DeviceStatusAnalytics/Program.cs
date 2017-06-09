@@ -87,6 +87,8 @@ namespace DeviceStatusAnalytics
             while (true)
             {
                 await Task.Delay(5000);
+
+                DeviceStatus.DeviceStatusHelper.CheckHistoryAndSendReport();
             }
         }
 
