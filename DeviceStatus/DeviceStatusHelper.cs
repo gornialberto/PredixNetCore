@@ -425,27 +425,44 @@ namespace DeviceStatus
 
             foreach (var topicType in CurrentlyMonitoredTopicType)
             {
-                message += @"For the Topic '" + topicType + "' we have the following changes:\n";
+                message += @"\n\nFor the Topic '" + topicType + "' we have the following changes:\n";
 
                 bool someDevice = false;
 
-                foreach (var deviceID in CurrentlySubscribedDeviceIdList)
+                var deviceAndModelList = from dev in CurrentlySubscribedDeviceIdList
+                                    select new { DeviceID = dev, DeviceModel = getRedisLastValue(dev, DeviceStatusTopics.DeviceModel) };
+
+                var deviceByModelGroups = deviceAndModelList.GroupBy(g => g.DeviceModel);
+
+                foreach (var deviceModelGroup in deviceByModelGroups)
                 {
-                    var history = getRedisHistory(deviceID,topicType);
+                    var deviceModel = deviceModelGroup.Key;
 
-                    if (history != null && history.Count > 0)
+                    if (deviceModel != null && !string.IsNullOrEmpty(deviceModel.Value as string))
                     {
-                        message += ("\n\n\nDevice: " + deviceID + "\n");
-
-                        someDevice = true;
-                        
-                        //keep just the last 48 hours! 
-                        history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(48)).ToList();
-
-                        foreach (var item in history)
+                        message += ("\nDeviceModel: " + (deviceModel.Value as string) + "\n");
+                    }
+                    
+                    foreach (var deviceAndModel in deviceModelGroup)
                         {
-                            message += string.Format("\n {0}", item.ToJSON());
-                        }
+                            var deviceID = deviceAndModel.DeviceID;
+
+                            var history = getRedisHistory(deviceID,topicType);
+
+                            if (history != null && history.Count > 0)
+                            {
+                                message += ("\n\n\nDevice: " + deviceID + "\n");
+
+                                someDevice = true;
+                        
+                                //keep just the last 48 hours! 
+                                history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(48)).ToList();
+
+                                foreach (var item in history)
+                                {
+                                    message += string.Format("\n {0}", item.ToJSON());
+                                }
+                            }
                     }
                 }
 
