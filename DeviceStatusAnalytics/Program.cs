@@ -75,11 +75,14 @@ namespace DeviceStatusAnalytics
 
             while (true)
             {
+                LoggerHelper.LogInfoWriter(logger, "Loading from REDIS device list...");
                 var deviceList = DeviceStatus.DeviceStatusHelper.GetRedisDeviceList(redisClient);
 
                 if ( deviceList != null)
                 {
                     //now for each device check if there is any device update that matters...
+
+                    LoggerHelper.LogInfoWriter(logger, string.Format( "Gathering Device Details and check for updates for {0} devices...", deviceList.Value.Count));
 
                     foreach (var deviceId in deviceList.Value)
                     {
@@ -91,10 +94,12 @@ namespace DeviceStatusAnalytics
                         }
                     }
 
+                    LoggerHelper.LogInfoWriter(logger, string.Format( "  Devices succesfully checked at {0}! Now wait for few time for the next update...", DateTime.UtcNow ), ConsoleColor.Green);
+
                     DeviceStatus.DeviceStatusHelper.CheckHistoryAndSendReport(redisClient, deviceList.Value);
                 }
                 
-                await Task.Delay(TimeSpan.FromMinutes(1));
+                await Task.Delay(TimeSpan.FromMinutes(5));
             }
         }
 

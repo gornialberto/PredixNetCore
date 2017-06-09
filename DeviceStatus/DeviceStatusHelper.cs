@@ -432,14 +432,14 @@ namespace DeviceStatus
         /// Check for the necessity of executing the report...
         /// </summary>
         /// <param name="redisClient"></param>
-        public static void CheckHistoryAndSendReport(IRedisClient redisClient, List<string> deviceIdList)
+        public static void CheckHistoryAndSendReport(IRedisClient redisClient, List<string> deviceIdList, int intervalMinutes = 30)
         {
             //when it was last report??
             var lastReport = redisClient.Get<DateTime?>("LastSchindlerDeviceReport");
 
             if (lastReport != null)
             {
-                if (lastReport < DateTime.UtcNow - TimeSpan.FromMinutes(1.0))
+                if (lastReport < DateTime.UtcNow - TimeSpan.FromMinutes(intervalMinutes))
                 {
                     createAndSendReport(redisClient, deviceIdList);
                 }
