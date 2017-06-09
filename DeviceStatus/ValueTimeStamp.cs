@@ -11,9 +11,9 @@ namespace DeviceStatus
     /// <summary>
     /// DTO class   
     /// </summary>
-    public class ValueTimeStamp
+    public class ValueTimeStamp<T> where T : class
     {
-        private static ILog logger = LogManager.GetLogger(typeof(ValueTimeStamp));
+        private static ILog logger = LogManager.GetLogger(typeof(ValueTimeStamp<T>));
 
         /// <summary>
         /// ctor
@@ -28,7 +28,7 @@ namespace DeviceStatus
         /// </summary>
         /// <param name="value"></param>
         /// <param name="timeStamp"></param>
-        public ValueTimeStamp(object value, DateTime timeStamp)
+        public ValueTimeStamp(T value, DateTime timeStamp)
         {
             this.Value = value;
             this.TimeStamp = timeStamp;
@@ -36,7 +36,7 @@ namespace DeviceStatus
 
         
 
-        public object Value { get; set; }
+        public T Value { get; set; }
 
         public DateTime TimeStamp { get; set; }
 
@@ -57,13 +57,13 @@ namespace DeviceStatus
         /// </summary>
         /// <param name="json"></param>
         /// <returns></returns>
-        public static ValueTimeStamp FromJSON(string json)
+        public static ValueTimeStamp<T> FromJSON(string json)
         {
-            ValueTimeStamp entity = null;
+            ValueTimeStamp<T> entity = null;
 
             try
             {
-                entity = JsonConvert.DeserializeObject<ValueTimeStamp>(json);
+                entity = JsonConvert.DeserializeObject<ValueTimeStamp<T>>(json);
                 return entity;
             }
             catch (Exception ex)

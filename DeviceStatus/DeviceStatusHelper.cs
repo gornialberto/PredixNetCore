@@ -74,11 +74,11 @@ namespace DeviceStatus
         public static void PublishMQTTDeviceDetails(MqttClient mqttClient, DeviceDetails dev, DateTime timeStamp)
         {
             var topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.DeviceName);
-            var value = Encoding.UTF8.GetBytes(new ValueTimeStamp(dev.name, timeStamp).ToJSON());
+            var value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(dev.name, timeStamp).ToJSON());
             mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
             
             topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.DeviceModel);
-            value = Encoding.UTF8.GetBytes(new ValueTimeStamp(dev.deviceModel, timeStamp).ToJSON());
+            value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(dev.device_model_id, timeStamp).ToJSON());
             mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
             
             if (dev.deviceInfoStatus.dynamicStatus != null)
@@ -91,7 +91,7 @@ namespace DeviceStatus
                     {
                         topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.IPv6);
                         var IPv6 = tun0Network.ipv6Addresses.FirstOrDefault();
-                        value = Encoding.UTF8.GetBytes(new ValueTimeStamp(IPv6, timeStamp).ToJSON());
+                        value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(IPv6, timeStamp).ToJSON());
                         mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
                     }
                 }
@@ -104,11 +104,11 @@ namespace DeviceStatus
                 if (simInfo != null)
                 {
                     topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.iccid);
-                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp(simInfo.iccid, timeStamp).ToJSON());
+                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(simInfo.iccid, timeStamp).ToJSON());
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
 
                     topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.imei);
-                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp(simInfo.imei, timeStamp).ToJSON());
+                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(simInfo.imei, timeStamp).ToJSON());
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
 
                     if (simInfo.attributes != null)
@@ -116,14 +116,14 @@ namespace DeviceStatus
                         if (simInfo.attributes.imsi != null)
                         {
                             topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.imsi);
-                            value = Encoding.UTF8.GetBytes(new ValueTimeStamp(simInfo.attributes.imsi.value, timeStamp).ToJSON());
+                            value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(simInfo.attributes.imsi.value, timeStamp).ToJSON());
                             mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
                         }
 
                         if (simInfo.attributes.mno != null)
                         {
                             topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.mno);
-                            value = Encoding.UTF8.GetBytes(new ValueTimeStamp(simInfo.attributes.mno.value, timeStamp).ToJSON());
+                            value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(simInfo.attributes.mno.value, timeStamp).ToJSON());
                             mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
                         }
 
@@ -151,34 +151,65 @@ namespace DeviceStatus
                 if (cellularStatus != null)
                 {
                     topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.networkMode);
-                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp(cellularStatus.networkMode, timeStamp).ToJSON());
+                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(cellularStatus.networkMode, timeStamp).ToJSON());
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
 
                     topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.rssi);
-                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp(cellularStatus.signalStrength.rssi.ToString(), timeStamp).ToJSON());
+                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(cellularStatus.signalStrength.rssi.ToString(), timeStamp).ToJSON());
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
 
                     topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.rsrq);
-                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp(cellularStatus.signalStrength.rsrq.ToString(), timeStamp).ToJSON());
+                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(cellularStatus.signalStrength.rsrq.ToString(), timeStamp).ToJSON());
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
 
                     topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.rsrp);
-                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp(cellularStatus.signalStrength.rsrp.ToString(), timeStamp).ToJSON());
+                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(cellularStatus.signalStrength.rsrp.ToString(), timeStamp).ToJSON());
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
 
                     topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.ecio);
-                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp(cellularStatus.signalStrength.ecio.ToString(), timeStamp).ToJSON());
+                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(cellularStatus.signalStrength.ecio.ToString(), timeStamp).ToJSON());
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
 
                     topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.rscp);
-                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp(cellularStatus.signalStrength.rscp.ToString(), timeStamp).ToJSON());
+                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(cellularStatus.signalStrength.rscp.ToString(), timeStamp).ToJSON());
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
 
                     topic = DeviceStatusTopics.GetTopic(dev.did, DeviceStatusTopics.sinr);
-                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp(cellularStatus.signalStrength.sinr.ToString(), timeStamp).ToJSON());
+                    value = Encoding.UTF8.GetBytes(new ValueTimeStamp<string>(cellularStatus.signalStrength.sinr.ToString(), timeStamp).ToJSON());
                     mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
                 }
             }
+        }
+
+
+        /// <summary>
+        /// Publish Redis Device Details
+        /// </summary>
+        /// <param name="redisClient"></param>
+        /// <param name="dev"></param>
+        /// <param name="timeStamp"></param>
+        public static void PublishRedisDeviceDetails(IRedisClient redisClient, DeviceDetails dev, DateTime timeStamp)
+        {
+            var redisKey = DeviceStatusTopics.RedisDeviceDetails.Replace("{DeviceId}", dev.did);
+
+            var deviceDetailValue = new ValueTimeStamp<DeviceDetails>(dev, timeStamp);
+
+            redisClient.Set<ValueTimeStamp<DeviceDetails>>(redisKey, deviceDetailValue);
+        }
+
+        /// <summary>
+        /// Get Redis Device Details
+        /// </summary>
+        /// <param name="redisClient"></param>
+        /// <param name="deviceId"></param>
+        /// <returns></returns>
+        public static ValueTimeStamp<DeviceDetails> GetRedisDeviceDetails(IRedisClient redisClient, string deviceId)
+        {
+            var redisKey = DeviceStatusTopics.RedisDeviceDetails.Replace("{DeviceId}", deviceId);
+
+            var deviceDetailValue = redisClient.Get<ValueTimeStamp<DeviceDetails>>(redisKey);
+            
+            return deviceDetailValue;
         }
 
 
@@ -190,232 +221,239 @@ namespace DeviceStatus
         /// <param name="timeStamp"></param>
         public static void PublishMQTTDeviceList(MqttClient mqttClient, List<DeviceDetails> deviceCsvList, DateTime timeStamp)
         {
-            var topic = DeviceStatusTopics.MQTTDeviceListTopic;
+            var topic = DeviceStatusTopics.MQTTDeviceLisTopic;
 
-            var deviceIdList = from dev in deviceCsvList
-                                 select dev.did;
+            var deviceIdList = (from dev in deviceCsvList
+                                 select dev.did).ToList();
 
-            var jsonPayload = new ValueTimeStamp(deviceIdList, timeStamp).ToJSON();
+            var jsonPayload = new ValueTimeStamp<List<string>>(deviceIdList, timeStamp).ToJSON();
             var value = Encoding.UTF8.GetBytes(jsonPayload);
             mqttClient.Publish(topic, value, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE, true);
         }
 
+       
+        /// <summary>
+        /// Publish the list of Devices found in EM
+        /// </summary>
+        /// <param name="mqttClient"></param>
+        /// <param name="deviceCsvList"></param>
+        /// <param name="timeStamp"></param>
+        public static void PublishRedisDeviceList(IRedisClient redisClient, List<DeviceDetails> deviceCsvList, DateTime timeStamp)
+        {
+            var redisKey = DeviceStatusTopics.RedisDeviceListKey;
 
+            var deviceIdList = (from dev in deviceCsvList
+                               select dev.did).ToList();
 
+            var deviceListValue = new ValueTimeStamp<List<string>>(deviceIdList, timeStamp);
 
+            redisClient.Set<ValueTimeStamp<List<string>>>(redisKey, deviceListValue);
+        }
 
-
-
-
-
-
-        public static List<string> LatestDeviceIdList = new List<string>();
-
-        public static List<string> CurrentlySubscribedDeviceIdList = new List<string>();
-
-        public static List<string> CurrentlyMonitoredTopicType = new List<string>();
-
-
-        public static RedisManagerPool RedisManager = null;
-        public static IRedisClient RedisClient = null;
-
+       
         /// <summary>
         /// Connect to the Redis Service
         /// </summary>
         /// <param name="redisHost"></param>
-        public static void ConnectRedisService(string redisHost)
+        public static IRedisClient ConnectRedisService(string redisHost)
         {
             LoggerHelper.LogInfoWriter(logger, "Connecting to Redis...");
-            RedisManager = new RedisManagerPool(redisHost);
+            var redisManager = new RedisManagerPool(redisHost);
 
-            RedisClient = RedisManager.GetClient();
-
+            var redisClient = redisManager.GetClient();
+            
             LoggerHelper.LogInfoWriter(logger, "  Connected!", ConsoleColor.Green);
+
+            return redisClient;
         }
 
 
         /// <summary>
-        /// Subscribe to the Device List topic
+        /// Get Redis Device List
         /// </summary>
-        /// <param name="mqttClient"></param>
-        public static void SubscribeDeviceStatusTopics(MqttClient mqttClient)
+        /// <param name="redisClien"></param>
+        /// <returns></returns>
+        public static ValueTimeStamp<List<string>> GetRedisDeviceList(IRedisClient redisClient)
         {
-            mqttClient.MqttMsgPublishReceived += MqttClient_DeviceTopicsReceived;
-            mqttClient.Subscribe(new string[] { DeviceStatusTopics.MQTTDeviceListTopic }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE });
+            var redisKey = DeviceStatusTopics.RedisDeviceListKey;
 
-            CurrentlyMonitoredTopicType.Add(DeviceStatusTopics.IPv6);
-            CurrentlyMonitoredTopicType.Add(DeviceStatusTopics.networkMode);
+            var deviceList = redisClient.Get<ValueTimeStamp<List<string>>>(redisKey);
+
+            return deviceList;
         }
 
+
+
+
+
+
+
+
+        
         /// <summary>
         /// handler message received!
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private static void MqttClient_DeviceTopicsReceived(object sender,
-            uPLibrary.Networking.M2Mqtt.Messages.MqttMsgPublishEventArgs e)
+        public static void CheckDeviceDetailsForUpdate(IRedisClient redisClient, ValueTimeStamp<DeviceDetails> valueTimeStamp )
         {
-            if (e.Topic == DeviceStatusTopics.MQTTDeviceListTopic)
+            //check IPv6
+            DeviceDetails dev = valueTimeStamp.Value as DeviceDetails; 
+            DateTime timeStamp = valueTimeStamp.TimeStamp;
+
+            string deviceID = dev.did;
+
+            //Check for IPv6 change...
+            string attribute = DeviceStatusTopics.IPv6;
+
+            if (dev.deviceInfoStatus.dynamicStatus != null)
             {
-                string messageString = System.Text.Encoding.UTF8.GetString(e.Message);
-
-                var decodedValue = ValueTimeStamp.FromJSON(messageString);
-
-                var deviceListString = decodedValue.Value.ToString();
-                
-                var deviceList = JsonConvert.DeserializeObject<List<string>>(deviceListString);
-
-                LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} Device IDs", deviceList.Count));
-
-                LatestDeviceIdList.Clear();
-                LatestDeviceIdList.AddRange(deviceList);
-
-                UpdateSubscribedTopic(sender as MqttClient);
-            }
-
-
-            //device model is not considered to be monitored...   we just add in the Redis for pure classification of the data for the Report
-            if (CurrentlyMonitoredTopicType.Any(i=> e.Topic.Contains(i)) || (e.Topic.Contains(DeviceStatusTopics.DeviceModel)))
-            {
-                //ipv6 update!!!  let's see...
-                var splittedTopic = e.Topic.Split('/');
-                var deviceID = splittedTopic[1];
-                var topicType = splittedTopic[2];
-                
-                //data from Redis
-                var currentDeviceData = getRedisLastValue(deviceID, topicType);
-
-                //data live from MQTT
-                string messageString = System.Text.Encoding.UTF8.GetString(e.Message);
-                var liveDeviceData = ValueTimeStamp.FromJSON(messageString);
-
-                if (liveDeviceData == null)
+                if (dev.deviceInfoStatus.dynamicStatus.networkInfo != null)
                 {
-                    LoggerHelper.LogErrorWriter(logger, string.Format("Impossible to deserialize data for '{0}' - topic {1}",
-                        deviceID, topicType));
-                }
-                else
-                {
-                    if (currentDeviceData != null)
+                    var tun0Network = dev.deviceInfoStatus.dynamicStatus.networkInfo.Where(ni => ni.name == "tun0").FirstOrDefault();
+
+                    if (tun0Network != null)
                     {
-                        if (liveDeviceData.TimeStamp > currentDeviceData.TimeStamp)
-                        {
-                            //ok data is fresh! at least update the Redis data
-                            updateRedisLastValue(deviceID, topicType, liveDeviceData);
+                        var IPv6 = tun0Network.ipv6Addresses.FirstOrDefault();
 
-                            if ((liveDeviceData.Value as string) != (currentDeviceData.Value as string))
+                        //ok now get the value stored in Redis
+
+                        var IPv6ValueFromRedis = GetRedisLastValue<string>(redisClient, deviceID, attribute);
+
+                        if (IPv6ValueFromRedis == null)
+                        {
+                            //first time?!?!
+                            var newValue = new ValueTimeStamp<string>(IPv6, timeStamp);
+
+                            //ok data is fresh! at least update the Redis data
+                            UpdateRedisLastValue<string>(redisClient, deviceID, attribute, newValue);
+
+                            //historicize on Redis the status change...
+                            UpdateRedisHistory<string>(redisClient, deviceID, attribute, newValue);
+                        }
+                        else
+                        {
+                            if (IPv6ValueFromRedis.Value as string != IPv6)
                             {
-                                //ALLLLLLERRTT!! something is changed!
+                                var newValue = new ValueTimeStamp<string>(IPv6, timeStamp);
+
+                                //ok data is fresh! at least update the Redis data
+                                UpdateRedisLastValue<string>(redisClient, deviceID, attribute, newValue);
+
                                 string message = string.Format("The {0} is changed for '{1}': at {2} was '{3}' at {4} is '{5}'",
-                                    topicType, deviceID, currentDeviceData.TimeStamp, currentDeviceData.Value,
-                                    liveDeviceData.TimeStamp, liveDeviceData.Value);
-                            
+                                    attribute, deviceID, IPv6ValueFromRedis.TimeStamp, IPv6ValueFromRedis.Value,
+                                    newValue.TimeStamp, newValue.Value);
+
                                 LoggerHelper.LogInfoWriter(logger, message, ConsoleColor.Yellow);
 
                                 //historicize on Redis the status change...
-                                updateRedisHistory(deviceID, topicType, liveDeviceData);
+                                UpdateRedisHistory<string>(redisClient, deviceID, attribute, newValue);
                             }
                         }
-                    }
-                    else
-                    {
-                        //just update the redis db
-                        updateRedisLastValue(deviceID, topicType, liveDeviceData);
-                    
-                        //and the history as awell
-                        updateRedisHistory(deviceID, topicType, liveDeviceData);
+
                     }
                 }
-            }       
+            }
+
+
+            //check for other attributes change??
         }
 
-        private static ValueTimeStamp getRedisLastValue(string deviceID, string topicType)
-        {
-            string redisKeyLastValue = deviceID + "_" + topicType;
 
-            ValueTimeStamp lastValue = null;
+
+        private static ValueTimeStamp<T> GetRedisLastValue<T>(IRedisClient redisClient, string deviceID, string attribute) where T : class
+        {
+            string redisKeyLastValue = deviceID + "_" + attribute;
+
+            ValueTimeStamp<T> lastValue = null;
 
             try
             {
-                lastValue = RedisClient.Get<ValueTimeStamp>(redisKeyLastValue);
+                lastValue = redisClient.Get<ValueTimeStamp<T>>(redisKeyLastValue);
             }
             catch (Exception ex)
             {
-                LoggerHelper.LogErrorWriter(logger, string.Format("Error deserializing Last value from Redis for {0} {1}", deviceID, topicType));
+                LoggerHelper.LogErrorWriter(logger, string.Format("Error deserializing Last value from Redis for {0} {1}\n{2}", deviceID, attribute,
+                    ex.ToString()));
             }
 
             return lastValue;
         }
 
-        private static void updateRedisLastValue(string deviceID, string topicType, ValueTimeStamp liveDeviceData)
+        public static void UpdateRedisLastValue<T>(IRedisClient redisClient, string deviceID, string attribute, ValueTimeStamp<T> liveDeviceData) where T : class
         {
-            string redisKeyLastValue = deviceID + "_" + topicType;
+            string redisKeyLastValue = deviceID + "_" + attribute;
 
-            RedisClient.Set<ValueTimeStamp>(redisKeyLastValue, liveDeviceData);
+            redisClient.Set<ValueTimeStamp<T>>(redisKeyLastValue, liveDeviceData);
         }
-
-        private static void updateRedisHistory(string deviceID, string topicType, ValueTimeStamp liveDeviceData)
+        
+        public static void UpdateRedisHistory<T>(IRedisClient redisClient, string deviceID, string attribute, ValueTimeStamp<T> liveDeviceData, int queueLenghHours = 48) where T : class
         {
             //create the redis key
-            string redisKeyHistory = deviceID + "_" + topicType + "_History";
+            string redisKeyHistory = deviceID + "_" + attribute + "_History";
 
-            List<ValueTimeStamp> history = null;
+            List<ValueTimeStamp<T>> history = null;
+
             try
             {
-                history = RedisClient.Get<List<ValueTimeStamp>>(redisKeyHistory);
+                history = redisClient.Get<List<ValueTimeStamp<T>>>(redisKeyHistory);
             }
             catch (Exception ex)
             {
-                LoggerHelper.LogErrorWriter(logger, string.Format("Error deserializing History of value from Redis for {0} {1}", deviceID, topicType));
+                LoggerHelper.LogErrorWriter(logger, string.Format("Error deserializing History of value from Redis for {0} {1}\n{2}", deviceID, attribute,
+                    ex.ToString()));
             }
             
             if (history == null)
             {
-                history = new List<ValueTimeStamp>();
+                history = new List<ValueTimeStamp<T>>();
             }
 
             //keep just the last 48 hours! 
-            history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(48)).ToList();
+            history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(queueLenghHours)).ToList();
 
             //add the last update..
             history.Add(liveDeviceData);
 
             //and save back on Redis..
-            RedisClient.Set<List<ValueTimeStamp>>(redisKeyHistory, history);
+            redisClient.Set<List<ValueTimeStamp<T>>>(redisKeyHistory, history);
         }
-
-
-        private static List<ValueTimeStamp> getRedisHistory(string deviceID, string topicType)
+        
+        public static List<ValueTimeStamp<T>> GetRedisHistory<T>(IRedisClient redisClient, string deviceID, string attribute) where T : class
         {
             //create the redis key
-            string redisKeyHistory = deviceID + "_" + topicType + "_History";
+            string redisKeyHistory = deviceID + "_" + attribute + "_History";
     
-            return RedisClient.Get<List<ValueTimeStamp>>(redisKeyHistory);
+            return redisClient.Get<List<ValueTimeStamp<T>>>(redisKeyHistory);
         }
 
 
-        public static void CheckHistoryAndSendReport()
+        /// <summary>
+        /// Check for the necessity of executing the report...
+        /// </summary>
+        /// <param name="redisClient"></param>
+        public static void CheckHistoryAndSendReport(IRedisClient redisClient, List<string> deviceIdList)
         {
             //when it was last report??
-            var lastReport = RedisClient.Get<DateTime?>("LastSchindlerDeviceReport");
+            var lastReport = redisClient.Get<DateTime?>("LastSchindlerDeviceReport");
 
             if (lastReport != null)
             {
-                if (lastReport < DateTime.UtcNow - TimeSpan.FromMinutes(10.0))
+                if (lastReport < DateTime.UtcNow - TimeSpan.FromMinutes(1.0))
                 {
-                    createAndSendReport();
+                    createAndSendReport(redisClient, deviceIdList);
                 }
             }
             else
             {
-                createAndSendReport();
+                createAndSendReport(redisClient, deviceIdList);
             }
         }
 
         /// <summary>
         /// create and sent the report of the last 48 hours of changes
         /// </summary>
-        private static void createAndSendReport()
+        private static void createAndSendReport(IRedisClient redisClient, List<string> deviceIdList)
         {
             LoggerHelper.LogInfoWriter(logger, "Creating and sending report...");
             
@@ -423,58 +461,42 @@ namespace DeviceStatus
 
             message += "Schindler Report\n\n";
 
-            foreach (var topicType in CurrentlyMonitoredTopicType)
+            var attribute = DeviceStatusTopics.IPv6;
+
+            message += "\n\nFor the attribute '" + attribute + "' we have the following changes:\n";
+
+            bool someDevice = false;
+                
+            foreach (var deviceId in deviceIdList)
             {
-                message += @"\n\nFor the Topic '" + topicType + "' we have the following changes:\n";
+                var history = GetRedisHistory<string>(redisClient, deviceId, attribute);
 
-                bool someDevice = false;
-
-                var deviceAndModelList = from dev in CurrentlySubscribedDeviceIdList
-                                    select new { DeviceID = dev, DeviceModel = getRedisLastValue(dev, DeviceStatusTopics.DeviceModel) };
-
-                var deviceByModelGroups = deviceAndModelList.GroupBy(g => g.DeviceModel);
-
-                foreach (var deviceModelGroup in deviceByModelGroups)
+                if (history != null && history.Count > 0)
                 {
-                    var deviceModel = deviceModelGroup.Key;
+                    message += ("\n\n\nDevice: " + deviceId + "\n");
 
-                    if (deviceModel != null && !string.IsNullOrEmpty(deviceModel.Value as string))
-                    {
-                        message += ("\nDeviceModel: " + (deviceModel.Value as string) + "\n");
-                    }
-                    
-                    foreach (var deviceAndModel in deviceModelGroup)
-                        {
-                            var deviceID = deviceAndModel.DeviceID;
-
-                            var history = getRedisHistory(deviceID,topicType);
-
-                            if (history != null && history.Count > 0)
-                            {
-                                message += ("\n\n\nDevice: " + deviceID + "\n");
-
-                                someDevice = true;
+                    someDevice = true;
                         
-                                //keep just the last 48 hours! 
-                                history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(48)).ToList();
+                    //keep just the last 48 hours! 
+                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(48)).ToList();
 
-                                foreach (var item in history)
-                                {
-                                    message += string.Format("\n {0}", item.ToJSON());
-                                }
-                            }
+                    foreach (var item in history)
+                    {
+                        message += string.Format("\n {0}", item.ToJSON());
                     }
                 }
+            }
+                
 
-                if (!someDevice)
-                {
-                    message += "No changes for the Topic";
-                }
-
-                message += "\n\n\n";
+            if (!someDevice)
+            {
+                message += "No changes for the Topic";
             }
 
-            RedisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
+            message += "\n\n\n";
+            
+
+            redisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
 
             SendEmail(message);
 
@@ -515,48 +537,6 @@ namespace DeviceStatus
 
         }
 
-        private static void UpdateSubscribedTopic(MqttClient mqttClient)
-        {
-            //now update the subscription if needed!
-
-            //check for newely added devices
-            var addedDevices = from dev in LatestDeviceIdList
-                               where !CurrentlySubscribedDeviceIdList.Any(d => d == dev)
-                               select dev;
-
-            var removedDevices = from dev in CurrentlySubscribedDeviceIdList
-                                 where !LatestDeviceIdList.Any(d => d == dev)
-                                 select dev;
-
-            //ok now subscribe / unsubscribe...
-
-            if (addedDevices.Count() > 0)
-            {
-                LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} NEW Device IDs", addedDevices.Count()), ConsoleColor.Green);
-
-
-                var topicToSubscribe = (from dev in addedDevices
-                                        select DeviceStatusTopics.GetTopic(dev, DeviceStatusTopics.IPv6)).ToArray();
-
-                var qosToSubscribe = (from dev in addedDevices
-                                      select MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE).ToArray();
-
-                mqttClient.Subscribe(topicToSubscribe, qosToSubscribe); 
-            }
-
-            if (removedDevices.Count() > 0)
-            {
-                LoggerHelper.LogInfoWriter(logger, string.Format("  Found {0} REMOVED Device IDs", removedDevices.Count()), ConsoleColor.Red);
-
-
-                var topicToUnSubscribe = from dev in removedDevices
-                                         select DeviceStatusTopics.GetTopic(dev, DeviceStatusTopics.IPv6);
-
-                mqttClient.Unsubscribe(topicToUnSubscribe.ToArray());
-            }
-
-            CurrentlySubscribedDeviceIdList.Clear();
-            CurrentlySubscribedDeviceIdList.AddRange(LatestDeviceIdList);
-        }
+     
     }
 }

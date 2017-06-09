@@ -2,6 +2,7 @@
 using log4net.Config;
 using PredixCommon;
 using PredixCommon.Entities;
+using PredixCommon.Entities.EdgeManager;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -28,17 +29,14 @@ namespace DeviceStatusAnalytics
             LoggerHelper.LogInfoWriter(logger," Device Status Logger v" + versionNumber);
             LoggerHelper.LogInfoWriter(logger,"-------------------------------------------");
 
-            Environment.SetEnvironmentVariable("mqttServerAddress", "77.95.143.115");
+            
             Environment.SetEnvironmentVariable("redisServerAddress", "77.95.143.115");
 
-
-            //mqtt server is optional only if not writing to CSV!
-            string mqttServerAddress = Environment.GetEnvironmentVariable("mqttServerAddress");
             string redisServerAddress = Environment.GetEnvironmentVariable("redisServerAddress");
             
             bool inputValid = true;
 
-            if (string.IsNullOrEmpty(mqttServerAddress))
+            if (string.IsNullOrEmpty(redisServerAddress))
             {
                 string errMsg = string.Format("MQTT Server address parameter is empty");
                 logger.Fatal(errMsg);
@@ -51,7 +49,7 @@ namespace DeviceStatusAnalytics
                 try
                 {
                     //now execute the async part...              
-                    MainAsync(mqttServerAddress, redisServerAddress).Wait();
+                    MainAsync(redisServerAddress).Wait();
                 }
                 catch (Exception ex)
                 {
@@ -69,26 +67,34 @@ namespace DeviceStatusAnalytics
 
         
 
-        static async Task MainAsync(string mqttServerAddress, string redisServerAddress)
+        static async Task MainAsync(string redisServerAddress)
         {
             LoggerHelper.LogInfoWriter(logger, "Starting...");
 
-            MqttClient mqttClient = DeviceStatus.DeviceStatusHelper.GetMqttClient(mqttServerAddress, "DeviceSTatusAnalytics");
-
-            if (mqttClient == null)
-            {
-                Environment.Exit((int)ExitCode.MQTTNotConnected);
-            }
-
-            DeviceStatus.DeviceStatusHelper.ConnectRedisService(redisServerAddress);
-
-            DeviceStatus.DeviceStatusHelper.SubscribeDeviceStatusTopics(mqttClient);
+            var redisClient =  DeviceStatus.DeviceStatusHelper.ConnectRedisService(redisServerAddress);
 
             while (true)
             {
-                await Task.Delay(5000);
+                var deviceList = DeviceStatus.DeviceStatusHelper.GetRedisDeviceList(redisClient);
 
-                DeviceStatus.DeviceStatusHelper.CheckHistoryAndSendReport();
+                if ( deviceList != null)
+                {
+                    //now for each device check if there is any device update that matters...
+
+                    foreach (var deviceId in deviceList.Value)
+                    {
+                        var dev = DeviceStatus.DeviceStatusHelper.GetRedisDeviceDetails(redisClient, deviceId);
+
+                        if (dev != null)
+                        {
+                            DeviceStatus.DeviceStatusHelper.CheckDeviceDetailsForUpdate(redisClient, dev);
+                        }
+                    }
+
+                    DeviceStatus.DeviceStatusHelper.CheckHistoryAndSendReport(redisClient, deviceList.Value);
+                }
+                
+                await Task.Delay(TimeSpan.FromMinutes(1));
             }
         }
 

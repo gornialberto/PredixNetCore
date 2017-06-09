@@ -9,11 +9,16 @@ namespace DeviceStatus
     /// </summary>
     public class DeviceStatusTopics
     {
+        public const string RedisDeviceListKey = "RedisDeviceList";
+        public const string RedisDeviceDetails = "RedisDeviceDetails_{DeviceId}";
+
+       
+
         public const string TopicTemplate = "deviceStatus/{DeviceId}/{typeOfValue}";
         
         public const string MQTTStatusTopic = "deviceStatus/status";
+        public const string MQTTDeviceLisTopic = "deviceStatus/deviceList";
 
-        public const string MQTTDeviceListTopic = "deviceStatus/DeviceList";
 
         public const string DeviceName = "DeviceName";
         public const string DeviceModel = "DeviceModel";

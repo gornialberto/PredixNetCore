@@ -33,7 +33,15 @@ namespace DeviceStatusLogger
             logInfoWriter("-------------------------------------------");
             logInfoWriter(" Device Status Logger v" + versionNumber);
             logInfoWriter("-------------------------------------------");
-            
+
+
+
+
+
+            //mqtt server is optional only if not writing to CSV!
+            string mqttServerAddress = Environment.GetEnvironmentVariable("mqttServerAddress");
+            string redisServerAddress = Environment.GetEnvironmentVariable("redisServerAddress");
+
 
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
@@ -43,9 +51,6 @@ namespace DeviceStatusLogger
 
             //this is optional if not provided the MQTT address and port is needed! 
             string csvFilePath = Environment.GetEnvironmentVariable("csvFilePath");
-
-            //mqtt server is optional only if not writing to CSV!
-            string mqttServerAddress = Environment.GetEnvironmentVariable("mqttServerAddress");
 
 
             bool inputValid = true;
@@ -82,9 +87,9 @@ namespace DeviceStatusLogger
                 inputValid = false;
             }
 
-            if (string.IsNullOrEmpty(csvFilePath) && string.IsNullOrEmpty(mqttServerAddress))
+            if (string.IsNullOrEmpty(csvFilePath) && (string.IsNullOrEmpty(mqttServerAddress) && string.IsNullOrEmpty(redisServerAddress)))
             {
-                string errMsg = string.Format("CSV Path & MQTT Server host parameter are empty! cannot be both empty!");
+                string errMsg = string.Format("CSV Path & MQTT or REDIS Server host parameter are empty! cannot be both empty!");
                 logger.Fatal(errMsg);
                 Console.WriteLine(errMsg);
                 inputValid = false;
@@ -95,7 +100,7 @@ namespace DeviceStatusLogger
                 try
                 {
                     //now execute the async part...              
-                    MainAsync(baseUAAUrl, clientID, clientSecret, edgeManagerBaseUrl, csvFilePath, mqttServerAddress).Wait();
+                    MainAsync(baseUAAUrl, clientID, clientSecret, edgeManagerBaseUrl, csvFilePath, mqttServerAddress, redisServerAddress).Wait();
                 }
                 catch (Exception ex)
                 {
@@ -111,7 +116,7 @@ namespace DeviceStatusLogger
         }
 
 
-        static async Task MainAsync(string baseUAAUrl, string clientID, string clientSecret, string edgeManagerBaseUrl, string csvFilePath, string mqttServerAddress)
+        static async Task MainAsync(string baseUAAUrl, string clientID, string clientSecret, string edgeManagerBaseUrl, string csvFilePath, string mqttServerAddress, string redisServerAddress)
         {
             logInfoWriter("Starting...");
 
@@ -142,7 +147,7 @@ namespace DeviceStatusLogger
 
             List<DeviceDetails> deviceDetailsList = null;
 
-            if (string.IsNullOrEmpty(mqttServerAddress))
+            if (string.IsNullOrEmpty(mqttServerAddress) && string.IsNullOrEmpty(redisServerAddress))
             {
                 //just CSV write...
                 logInfoWriter("Writing to CSV one shot data capture...");
@@ -185,47 +190,88 @@ namespace DeviceStatusLogger
             }
             else
             {
-                //send data to MQTT
-                LoggerHelper.LogInfoWriter(logger, "Starting loop and sending data to MQTT");
-
-                MqttClient mqttClient = DeviceStatus.DeviceStatusHelper.GetMqttClient(mqttServerAddress, "DeviceStatusLoggerClient");
-
-                if (mqttClient == null)
+                if (redisServerAddress != null)
                 {
-                    Environment.Exit((int)ExitCode.MQTTNotConnected);
-                }
-              
-                while (true)
-                {
-                    deviceDetailsList = await getDeviceDetails( baseUAAUrl, clientID, clientSecret, accessToken, edgeManagerBaseUrl);
-                    
-                    if (deviceDetailsList != null)
+                    LoggerHelper.LogInfoWriter(logger, "Starting loop and sending data to Redis");
+
+                    var redisClient = DeviceStatus.DeviceStatusHelper.ConnectRedisService(redisServerAddress);
+
+                    while (true)
                     {
-                        var deviceCsvList = (from device in deviceDetailsList
+                        deviceDetailsList = await getDeviceDetails(baseUAAUrl, clientID, clientSecret, accessToken, edgeManagerBaseUrl);
 
-                                                select device).ToList();
-
-                        //where device.deviceInfoStatus.simInfo != null &&
-                        //device.deviceInfoStatus.cellularStatus != null
-
-                        var timeStamp = DateTime.UtcNow;
-
-                        DeviceStatus.DeviceStatusHelper.PublishMQTTDeviceList(mqttClient, deviceCsvList, timeStamp);
-
-                        //logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
-                        LoggerHelper.LogInfoWriter(logger, string.Format("  Sending deetails to MQTT for {0} devices at {1}", deviceCsvList.Count, timeStamp));
-
-                        foreach (var dev in deviceCsvList)
+                        if (deviceDetailsList != null)
                         {
-                            DeviceStatus.DeviceStatusHelper.PublishMQTTDeviceDetails(mqttClient, dev, timeStamp);
+                            var deviceCsvList = (from device in deviceDetailsList
+
+                                                 select device).ToList();
+
+                            var timeStamp = DateTime.UtcNow;
+
+                            DeviceStatus.DeviceStatusHelper.PublishRedisDeviceList(redisClient, deviceCsvList, timeStamp);
+
+                            //logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
+                            LoggerHelper.LogInfoWriter(logger, string.Format("  Sending deetails to REDIS for {0} devices at {1}", deviceCsvList.Count, timeStamp));
+
+                            foreach (var dev in deviceCsvList)
+                            {
+                                DeviceStatus.DeviceStatusHelper.PublishRedisDeviceDetails(redisClient, dev, timeStamp);
+                            }
+
+                            LoggerHelper.LogInfoWriter(logger, "  Data sent to REDIS", ConsoleColor.Green);
                         }
 
-                        LoggerHelper.LogInfoWriter(logger, "  Data sent to MQTT", ConsoleColor.Green);
+                        System.Threading.Thread.Sleep(TimeSpan.FromMinutes(5));
+
+                    } //end of while...    
+
+                }
+                else
+                {
+                    //send data to MQTT
+                    LoggerHelper.LogInfoWriter(logger, "Starting loop and sending data to MQTT");
+
+                    MqttClient mqttClient = DeviceStatus.DeviceStatusHelper.GetMqttClient(mqttServerAddress, "DeviceStatusLoggerClient");
+
+                    if (mqttClient == null)
+                    {
+                        Environment.Exit((int)ExitCode.MQTTNotConnected);
                     }
 
-                    System.Threading.Thread.Sleep(TimeSpan.FromMinutes(5));
+                    while (true)
+                    {
+                        deviceDetailsList = await getDeviceDetails(baseUAAUrl, clientID, clientSecret, accessToken, edgeManagerBaseUrl);
 
-                } //end of while...                    
+                        if (deviceDetailsList != null)
+                        {
+                            var deviceCsvList = (from device in deviceDetailsList
+
+                                                 select device).ToList();
+
+                            //where device.deviceInfoStatus.simInfo != null &&
+                            //device.deviceInfoStatus.cellularStatus != null
+
+                            var timeStamp = DateTime.UtcNow;
+
+                            DeviceStatus.DeviceStatusHelper.PublishMQTTDeviceList(mqttClient, deviceCsvList, timeStamp);
+
+                            //logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
+                            LoggerHelper.LogInfoWriter(logger, string.Format("  Sending deetails to MQTT for {0} devices at {1}", deviceCsvList.Count, timeStamp));
+
+                            foreach (var dev in deviceCsvList)
+                            {
+                                DeviceStatus.DeviceStatusHelper.PublishMQTTDeviceDetails(mqttClient, dev, timeStamp);
+                            }
+
+                            LoggerHelper.LogInfoWriter(logger, "  Data sent to MQTT", ConsoleColor.Green);
+                        }
+
+                        System.Threading.Thread.Sleep(TimeSpan.FromMinutes(5));
+
+                    } //end of while...    
+                }
+               
+                                
                  
             }
 
