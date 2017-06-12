@@ -410,7 +410,7 @@ namespace DeviceStatus
             }
 
             //keep just the last 48 hours! 
-            history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(queueLenghHours)).ToList();
+            history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(queueLenghHours)).OrderByDescending(i => i.TimeStamp).ToList();
 
             //add the last update..
             history.Add(liveDeviceData);
@@ -432,30 +432,100 @@ namespace DeviceStatus
         /// Check for the necessity of executing the report...
         /// </summary>
         /// <param name="redisClient"></param>
-        public static void CheckHistoryAndSendReport(IRedisClient redisClient, List<string> deviceIdList, int intervalMinutes = 30)
+        public static void CheckHistoryAndSendReport(IRedisClient redisClient, List<string> deviceIdList)
         {
-            //when it was last report??
+            var now = DateTime.UtcNow;
+
+            //when it was last report??   
             var lastReport = redisClient.Get<DateTime?>("LastSchindlerDeviceReport");
 
             if (lastReport != null)
             {
-                if (lastReport < DateTime.UtcNow - TimeSpan.FromMinutes(intervalMinutes))
+                createLastUpdateReportAndSend(redisClient, deviceIdList, lastReport.Value);                
+            }
+
+            redisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
+            
+
+
+            var lastDailyReport = redisClient.Get<DateTime?>("LastSummarySchindlerDeviceReport");
+
+            if ((lastDailyReport != null) && ((now - lastDailyReport.Value) > TimeSpan.FromHours(24)))
+            {
+                //daily report will include just the devices with multiple IP changes...
+                createDailyReportAndSend(redisClient, deviceIdList);
+            }
+
+            //fix the report time 10 am UTC  (8AM Swiss time)
+            var thisMorning = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0);
+            redisClient.Set<DateTime?>("LastSummarySchindlerDeviceReport", thisMorning);
+
+        }
+
+        /// <summary>
+        /// createLastUpdateReportAndSend
+        /// </summary>
+        /// <param name="redisClient"></param>
+        /// <param name="deviceIdList"></param>
+        /// <param name="value"></param>
+        private static void createLastUpdateReportAndSend(IRedisClient redisClient, List<string> deviceIdList, DateTime lastUpdateReportCreation, int historyLenght = 48)
+        {
+            var message = string.Empty;
+
+            message += "Schindler Report\n\n";
+
+            var attribute = DeviceStatusTopics.IPv6;
+
+            //currently handling just IPv6!!!
+            message += "\n\nFor the attribute '" + attribute + "' we have the following changes:\n";
+
+            bool someDevice = false;
+
+            foreach (var deviceId in deviceIdList)
+            {
+                var history = GetRedisHistory<string>(redisClient, deviceId, attribute);
+
+                if (history != null && history.Count > 0)
                 {
-                    createAndSendReport(redisClient, deviceIdList);
+                    //keep just the last 48 hours! 
+                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderByDescending(i => i.TimeStamp).ToList();
+
+                    if (history.Count > 0)
+                    {
+                        //now check the "latest" ipv6 change... if it is happened after the last report generation get this!
+                        var lastTimeStamp = history.First().TimeStamp;
+
+                        if (lastTimeStamp > lastUpdateReportCreation)
+                        {
+                            message += ("\n\n\nDevice: " + deviceId + "\n");
+
+                            someDevice = true;
+
+                            foreach (var item in history)
+                            {
+                                message += string.Format("\n {0}", item.ToJSON());
+                            }
+                        }  
+                    }                      
                 }
             }
-            else
+
+            if (someDevice)
             {
-                createAndSendReport(redisClient, deviceIdList);
-            }
+                message += "\n\n\n";
+
+                SendEmail(message);
+
+                LoggerHelper.LogInfoWriter(logger, "Sent a last minute device update!", ConsoleColor.DarkYellow);
+            }                      
         }
 
         /// <summary>
         /// create and sent the report of the last 48 hours of changes
         /// </summary>
-        private static void createAndSendReport(IRedisClient redisClient, List<string> deviceIdList)
+        private static void createDailyReportAndSend(IRedisClient redisClient, List<string> deviceIdList, int historyLenght = 48)
         {
-            LoggerHelper.LogInfoWriter(logger, "Creating and sending report...");
+            LoggerHelper.LogInfoWriter(logger, "Creating and sending daily report...");
             
             var message = string.Empty;
 
@@ -470,34 +540,34 @@ namespace DeviceStatus
             foreach (var deviceId in deviceIdList)
             {
                 var history = GetRedisHistory<string>(redisClient, deviceId, attribute);
-
+                                
                 if (history != null && history.Count > 0)
                 {
-                    message += ("\n\n\nDevice: " + deviceId + "\n");
-
-                    someDevice = true;
-                        
                     //keep just the last 48 hours! 
-                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(48)).ToList();
+                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).ToList();
 
-                    foreach (var item in history)
+                    //check for IP changes (so... min 2 entries) over the last XX hours...
+                    if (history.Count > 1)
                     {
-                        message += string.Format("\n {0}", item.ToJSON());
+                        message += ("\n\n\nDevice: " + deviceId + "\n");
+
+                        someDevice = true;
+
+                        foreach (var item in history)
+                        {
+                            message += string.Format("\n {0}", item.ToJSON());
+                        }
                     }
                 }
             }
                 
-
             if (!someDevice)
             {
                 message += "No changes for the Topic";
             }
 
             message += "\n\n\n";
-            
-
-            redisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
-
+           
             SendEmail(message);
 
             LoggerHelper.LogInfoWriter(logger, "  Done!", ConsoleColor.Green);

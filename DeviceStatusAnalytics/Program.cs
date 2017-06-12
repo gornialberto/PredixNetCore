@@ -94,11 +94,12 @@ namespace DeviceStatusAnalytics
                         }
                     }
 
-                    LoggerHelper.LogInfoWriter(logger, string.Format( "  Devices succesfully checked at {0}! Now wait for few time for the next update...", DateTime.UtcNow ), ConsoleColor.Green);
-
                     DeviceStatus.DeviceStatusHelper.CheckHistoryAndSendReport(redisClient, deviceList.Value);
+
+                    LoggerHelper.LogInfoWriter(logger, string.Format( "Devices succesfully checked at {0}! Now wait for few time for the next update...", DateTime.UtcNow ));                    
                 }
                 
+                //wait for 5 minutes...  before next check...
                 await Task.Delay(TimeSpan.FromMinutes(5));
             }
         }
