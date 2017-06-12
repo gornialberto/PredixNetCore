@@ -483,6 +483,18 @@ namespace DeviceStatus
 
             foreach (var deviceId in deviceIdList)
             {
+                //get the latest device details...
+                var deviceDetails = GetRedisDeviceDetails(redisClient, deviceId);
+
+                if (deviceDetails != null)
+                {
+                    if (deviceDetails.Value.device_model_id == "VCube")
+                    {
+                        //skip monitoring for virtual cubes
+                        continue;
+                    }
+                }
+
                 var history = GetRedisHistory<string>(redisClient, deviceId, attribute);
 
                 if (history != null && history.Count > 0)
@@ -529,7 +541,7 @@ namespace DeviceStatus
             
             var message = string.Empty;
 
-            message += "Schindler Report\n\n";
+            message += "Schindler Daily Report\n\n";
 
             var attribute = DeviceStatusTopics.IPv6;
 
@@ -539,6 +551,9 @@ namespace DeviceStatus
                 
             foreach (var deviceId in deviceIdList)
             {
+                //get the latest device details...
+                var deviceDetails = GetRedisDeviceDetails(redisClient, deviceId);
+
                 var history = GetRedisHistory<string>(redisClient, deviceId, attribute);
                                 
                 if (history != null && history.Count > 0)
@@ -549,7 +564,55 @@ namespace DeviceStatus
                     //check for IP changes (so... min 2 entries) over the last XX hours...
                     if (history.Count > 1)
                     {
-                        message += ("\n\n\nDevice: " + deviceId + "\n");
+                        message += ("\n\n\n\nDeviceId: " + deviceId + "\n");
+
+                        if (deviceDetails != null)
+                        {
+                            message += ("Device Name: " + deviceDetails.Value.name + "\n");
+                            message += ("Device Model: " + deviceDetails.Value.device_model_id + "\n");
+
+                            if (deviceDetails.Value.deviceInfoStatus != null)
+                            {
+                                if (deviceDetails.Value.deviceInfoStatus.simInfo != null)
+                                {
+                                    var firstSimDetails = deviceDetails.Value.deviceInfoStatus.simInfo.FirstOrDefault();
+
+                                    if (firstSimDetails != null)
+                                    {
+                                        message += ("ICCID: " + firstSimDetails.iccid + "\n");
+
+                                        if (firstSimDetails.attributes != null)
+                                        {
+                                            message += ("IMSI: " + firstSimDetails.attributes.imsi.value + "\n");
+                                            message += ("MNO: " + firstSimDetails.attributes.mno.value + "\n");
+                                            message += ("Cellular Module: " + firstSimDetails.attributes.module.value + "\n");
+                                            message += ("Module Firmware: " + firstSimDetails.attributes.firmware.value + "\n");
+                                        }                                        
+                                    }
+                                }
+
+                                if (deviceDetails.Value.deviceInfoStatus.cellularStatus != null)
+                                {
+                                    var firstSimDetials = deviceDetails.Value.deviceInfoStatus.cellularStatus.FirstOrDefault();
+
+                                    if (firstSimDetials != null)
+                                    {
+                                        message += ("Last Mobile Network Mode: " + firstSimDetials.networkMode + "\n");
+
+                                        if (firstSimDetials.signalStrength != null)
+                                        {
+                                            message += ("Last RSSI: " + firstSimDetials.signalStrength.rssi + "\n");
+                                            message += ("Last RSRP: " + firstSimDetials.signalStrength.rsrp + "\n");
+                                            message += ("Last RSRQ: " + firstSimDetials.signalStrength.rsrq + "\n");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+
+
+                        message += ("IPv6 Changes: " + history.Count + "\n");
 
                         someDevice = true;
 
