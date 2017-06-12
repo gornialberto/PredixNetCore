@@ -544,7 +544,7 @@ namespace DeviceStatus
                 if (history != null && history.Count > 0)
                 {
                     //keep just the last 48 hours! 
-                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).ToList();
+                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderByDescending(i => i.TimeStamp).ToList();
 
                     //check for IP changes (so... min 2 entries) over the last XX hours...
                     if (history.Count > 1)
