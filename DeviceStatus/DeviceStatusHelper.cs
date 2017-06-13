@@ -454,12 +454,11 @@ namespace DeviceStatus
             {
                 //daily report will include just the devices with multiple IP changes...
                 createDailyReportAndSend(redisClient, deviceIdList);
+
+                //fix the report time 10 am UTC  (8AM Swiss time)
+                var thisMorning = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0);
+                redisClient.Set<DateTime?>("LastSummarySchindlerDeviceReport", thisMorning);
             }
-
-            //fix the report time 10 am UTC  (8AM Swiss time)
-            var thisMorning = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0);
-            redisClient.Set<DateTime?>("LastSummarySchindlerDeviceReport", thisMorning);
-
         }
 
         /// <summary>
@@ -472,12 +471,12 @@ namespace DeviceStatus
         {
             var message = string.Empty;
 
-            message += "Schindler Report\n\n";
+            message += "<h1>Schindler Report</h1>";
 
             var attribute = DeviceStatusTopics.IPv6;
 
             //currently handling just IPv6!!!
-            message += "\n\nFor the attribute '" + attribute + "' we have the following changes:\n";
+            message += "<br><h2>For the attribute '" + attribute + "' we have the following changes</h2>";
 
             bool someDevice = false;
 
@@ -509,13 +508,13 @@ namespace DeviceStatus
 
                         if (lastTimeStamp > lastUpdateReportCreation)
                         {
-                            message += ("\n\n\nDevice: " + deviceId + "\n");
+                            message += ("<br><br>Device: " + deviceId + "<br>");
 
                             someDevice = true;
 
                             foreach (var item in history)
                             {
-                                message += string.Format("\n {0}", item.ToJSON());
+                                message += string.Format("<br> {0}", item.ToJSON());
                             }
                         }  
                     }                      
@@ -524,9 +523,9 @@ namespace DeviceStatus
 
             if (someDevice)
             {
-                message += "\n\n\n";
+                message += "<br><br><br>";
 
-                SendEmail(message);
+                SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Last Update Report]", message);
 
                 LoggerHelper.LogInfoWriter(logger, "Sent a last minute device update!", ConsoleColor.DarkYellow);
             }                      
@@ -541,11 +540,11 @@ namespace DeviceStatus
             
             var message = string.Empty;
 
-            message += "Schindler Daily Report\n\n";
+            message += "<h1>Schindler Daily Report</h1>";
 
             var attribute = DeviceStatusTopics.IPv6;
 
-            message += "\n\nFor the attribute '" + attribute + "' we have the following changes:\n";
+            message += "<h2>For the attribute '" + attribute + "' we have the following changes</h2>";
 
             bool someDevice = false;
                 
@@ -553,6 +552,15 @@ namespace DeviceStatus
             {
                 //get the latest device details...
                 var deviceDetails = GetRedisDeviceDetails(redisClient, deviceId);
+
+                if (deviceDetails != null)
+                {
+                    if (deviceDetails.Value.device_model_id == "VCube")
+                    {
+                        //skip monitoring for virtual cubes
+                        continue;
+                    }
+                }
 
                 var history = GetRedisHistory<string>(redisClient, deviceId, attribute);
                                 
@@ -564,29 +572,34 @@ namespace DeviceStatus
                     //check for IP changes (so... min 2 entries) over the last XX hours...
                     if (history.Count > 1)
                     {
-                        message += ("\n\n\n\nDeviceId: " + deviceId + "\n");
+                        message += ("<br><br><b>DeviceId: " + deviceId + "</b><br>");
 
                         if (deviceDetails != null)
                         {
-                            message += ("Device Name: " + deviceDetails.Value.name + "\n");
-                            message += ("Device Model: " + deviceDetails.Value.device_model_id + "\n");
-
+                            message += ("Device Name: " + deviceDetails.Value.name + "<br>");
+                            message += ("Device Model: " + deviceDetails.Value.device_model_id + "<br>");
+                            
                             if (deviceDetails.Value.deviceInfoStatus != null)
                             {
+                                if ( deviceDetails.Value.deviceInfoStatus.machineInfo != null)
+                                {
+                                    message += ("Predix Machine Version: " + deviceDetails.Value.deviceInfoStatus.machineInfo.machineVersion + "<br>");
+                                }
+
                                 if (deviceDetails.Value.deviceInfoStatus.simInfo != null)
                                 {
                                     var firstSimDetails = deviceDetails.Value.deviceInfoStatus.simInfo.FirstOrDefault();
 
                                     if (firstSimDetails != null)
                                     {
-                                        message += ("ICCID: " + firstSimDetails.iccid + "\n");
+                                        message += ("ICCID: " + firstSimDetails.iccid + "<br>");
 
                                         if (firstSimDetails.attributes != null)
                                         {
-                                            message += ("IMSI: " + firstSimDetails.attributes.imsi.value + "\n");
-                                            message += ("MNO: " + firstSimDetails.attributes.mno.value + "\n");
-                                            message += ("Cellular Module: " + firstSimDetails.attributes.module.value + "\n");
-                                            message += ("Module Firmware: " + firstSimDetails.attributes.firmware.value + "\n");
+                                            message += ("IMSI: " + firstSimDetails.attributes.imsi.value + "<br>");
+                                            message += ("MNO: " + firstSimDetails.attributes.mno.value + "<br>");
+                                            message += ("Cellular Module: " + firstSimDetails.attributes.module.value + "<br>");
+                                            message += ("Module Firmware: " + firstSimDetails.attributes.firmware.value + "<br>");
                                         }                                        
                                     }
                                 }
@@ -597,13 +610,13 @@ namespace DeviceStatus
 
                                     if (firstSimDetials != null)
                                     {
-                                        message += ("Last Mobile Network Mode: " + firstSimDetials.networkMode + "\n");
+                                        message += ("Last Mobile Network Mode: " + firstSimDetials.networkMode + "<br>");
 
                                         if (firstSimDetials.signalStrength != null)
                                         {
-                                            message += ("Last RSSI: " + firstSimDetials.signalStrength.rssi + "\n");
-                                            message += ("Last RSRP: " + firstSimDetials.signalStrength.rsrp + "\n");
-                                            message += ("Last RSRQ: " + firstSimDetials.signalStrength.rsrq + "\n");
+                                            message += ("Last RSSI: " + firstSimDetials.signalStrength.rssi + "<br>");
+                                            message += ("Last RSRP: " + firstSimDetials.signalStrength.rsrp + "<br>");
+                                            message += ("Last RSRQ: " + firstSimDetials.signalStrength.rsrq + "<br>");
                                         }
                                     }
                                 }
@@ -612,13 +625,13 @@ namespace DeviceStatus
 
 
 
-                        message += ("IPv6 Changes: " + history.Count + "\n");
+                        message += ("IPv6 Changes: " + history.Count + "<br>");
 
                         someDevice = true;
 
                         foreach (var item in history)
                         {
-                            message += string.Format("\n {0}", item.ToJSON());
+                            message += string.Format("<br> {0}", item.ToJSON());
                         }
                     }
                 }
@@ -629,22 +642,26 @@ namespace DeviceStatus
                 message += "No changes for the Topic";
             }
 
-            message += "\n\n\n";
+            message += "<br><br><br>";
            
-            SendEmail(message);
+            SendEmail(new string[] { "Alberto Gorni"  }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", message);
 
             LoggerHelper.LogInfoWriter(logger, "  Done!", ConsoleColor.Green);
         }
 
-        public static void SendEmail(string messageBody)
+        public static void SendEmail(string[] sendToName, string[] sendToAddress, string subject, string messageBody)
         {
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress("Predix Bot", "predixbot@gmail.com"));
-            message.To.Add(new MailboxAddress("Gorni Alberto", "gorni.alberto@gmail.com"));
-            //message.To.Add(new MailboxAddress("Nicolandrea Costa", "nicolandrea.costa@ge.com"));
-            message.Subject = "[Schindler Notification]";
 
-            message.Body = new TextPart("plain")
+            for (int i = 0; i < sendToName.Count(); i++)
+            {
+                message.To.Add(new MailboxAddress(sendToName[i], sendToAddress[i]));
+            }
+                       
+            message.Subject = subject;
+
+            message.Body = new TextPart(MimeKit.Text.TextFormat.Html)
             {
                 Text = messageBody
             };
