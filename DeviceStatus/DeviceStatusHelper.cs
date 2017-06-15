@@ -436,15 +436,15 @@ namespace DeviceStatus
         {
             var now = DateTime.UtcNow;
 
-            //when it was last report??   
-            var lastReport = redisClient.Get<DateTime?>("LastSchindlerDeviceReport");
+            ////when it was last report??   
+            //var lastReport = redisClient.Get<DateTime?>("LastSchindlerDeviceReport");
 
-            if (lastReport != null)
-            {
-                createLastUpdateReportAndSend(redisClient, deviceIdList, lastReport.Value);                
-            }
+            //if (lastReport != null)
+            //{
+            //    createLastUpdateReportAndSend(redisClient, deviceIdList, lastReport.Value);                
+            //}
 
-            redisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
+            //redisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
             
 
 
@@ -754,7 +754,7 @@ namespace DeviceStatus
 
             message += "<br><br><br>";
 
-            SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", message);
+            SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Full Report]", message);
 
             LoggerHelper.LogInfoWriter(logger, "  Done!", ConsoleColor.Green);
         }
