@@ -26,16 +26,14 @@ namespace DeviceStatusLogger
             var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
             XmlConfigurator.Configure(logRepository, new FileInfo("log4net.config"));
 
-            string versionNumber = "1.0";
+            string versionNumber = "1.5";
 
             logger.Debug("App Started");
 
             logInfoWriter("-------------------------------------------");
             logInfoWriter(" Device Status Logger v" + versionNumber);
             logInfoWriter("-------------------------------------------");
-
-
-
+            
 
 
             //mqtt server is optional only if not writing to CSV!
@@ -198,6 +196,8 @@ namespace DeviceStatusLogger
 
                     while (true)
                     {
+                        //this loop should be resilient to exceptions and retry to get data on the next time slot available without crashing!
+
                         deviceDetailsList = await getDeviceDetails(baseUAAUrl, clientID, clientSecret, accessToken, edgeManagerBaseUrl);
 
                         if (deviceDetailsList != null)
@@ -208,19 +208,54 @@ namespace DeviceStatusLogger
 
                             var timeStamp = DateTime.UtcNow;
 
-                            DeviceStatus.DeviceStatusHelper.PublishRedisDeviceList(redisClient, deviceCsvList, timeStamp);
+                            bool anyIssue = false;
 
-                            //logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
-                            LoggerHelper.LogInfoWriter(logger, string.Format("  Sending deetails to REDIS for {0} devices at {1}", deviceCsvList.Count, timeStamp));
-
-                            foreach (var dev in deviceCsvList)
+                            try
                             {
-                                DeviceStatus.DeviceStatusHelper.PublishRedisDeviceDetails(redisClient, dev, timeStamp);
+                                DeviceStatus.DeviceStatusHelper.PublishRedisDeviceList(redisClient, deviceCsvList, timeStamp);
+                            }
+                            catch (Exception ex)
+                            {
+                                LoggerHelper.LogErrorWriter(logger, "An error while sending Device List to REDIS");
+                                LoggerHelper.LogErrorWriter(logger , string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                                lastExitCode = ExitCode.EdgeManagerIssue;
+
+                                anyIssue = true;
                             }
 
-                            LoggerHelper.LogInfoWriter(logger, "  Data sent to REDIS", ConsoleColor.Green);
+                            if (!anyIssue)
+                            {
+                                //logInfoWriter(string.Format("  Found {0} devices with Cellular status updated. Sending data to MQTT", deviceCsvList.Count));
+                                LoggerHelper.LogInfoWriter(logger, string.Format("  Sending deetails to REDIS for {0} devices at {1}", deviceCsvList.Count, timeStamp));
+
+                                foreach (var dev in deviceCsvList)
+                                {
+                                    try
+                                    {
+
+                                        DeviceStatus.DeviceStatusHelper.PublishRedisDeviceDetails(redisClient, dev, timeStamp);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        LoggerHelper.LogErrorWriter(logger, string.Format("An error while sending Device {0} detail to REDIS", dev.did));
+                                        LoggerHelper.LogErrorWriter(logger, string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                                        
+                                        anyIssue = true;
+                                    }
+                                }
+
+                                if (!anyIssue)
+                                {
+                                    LoggerHelper.LogInfoWriter(logger, "  Data sent to REDIS", ConsoleColor.Green);
+                                }
+                                else
+                                {
+                                    LoggerHelper.LogInfoWriter(logger, "  Data partially sent to REDIS", ConsoleColor.DarkYellow);
+                                }                                
+                            }                            
                         }
 
+                        //wait for the next time slot
                         System.Threading.Thread.Sleep(TimeSpan.FromMinutes(5));
 
                     } //end of while...    
@@ -317,8 +352,9 @@ namespace DeviceStatusLogger
                 }
                 catch (Exception ex)
                 {
-                    logFatalWriter(string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
-                    cleanReturn(ExitCode.UAAIssue);
+                    logErrorWriter(string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                    lastExitCode = ExitCode.UAAIssue;
+                    return null;
                 }
                 
                 try
@@ -327,7 +363,7 @@ namespace DeviceStatusLogger
                 }
                 catch (Exception ex)
                 {
-                    logFatalWriter(string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                    logErrorWriter(string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
                     lastExitCode = ExitCode.EdgeManagerIssue;
                     return null;
                 }
@@ -340,21 +376,30 @@ namespace DeviceStatusLogger
 
             var deviceDetailsList = new List<DeviceDetails>();
 
-            //ok now for each device gets its details..  it will be time consuming!!
-            foreach (var device in deviceList.Devices)
+            try
             {
-                DeviceDetails deviceDetails = null;
-
-                deviceDetails = await EdgeManagerHelper.GetSingleDeviceDetails(edgeManagerBaseUrl, accessToken, device.did);
-
-                if (deviceDetails != null)
+                //ok now for each device gets its details..  it will be time consuming!!
+                foreach (var device in deviceList.Devices)
                 {
-                    deviceDetailsList.Add(deviceDetails);
+                    DeviceDetails deviceDetails = null;
+
+                    deviceDetails = await EdgeManagerHelper.GetSingleDeviceDetails(edgeManagerBaseUrl, accessToken, device.did);
+
+                    if (deviceDetails != null)
+                    {
+                        deviceDetailsList.Add(deviceDetails);
+                    }
+                    else
+                    {
+                        logErrorWriter(string.Format("Cannot load the device details for {0} - {1}", device.name, device.deviceUUID));
+                    }
                 }
-                else
-                {
-                    logErrorWriter(string.Format("Cannot load the device details for {0} - {1}", device.name, device.deviceUUID));
-                }
+            }
+            catch (Exception ex) 
+            {
+                logErrorWriter(string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                lastExitCode = ExitCode.EdgeManagerIssue;
+                return null;
             }
 
             return deviceDetailsList;

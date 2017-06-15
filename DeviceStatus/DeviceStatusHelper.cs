@@ -459,6 +459,9 @@ namespace DeviceStatus
                 var thisMorning = new DateTime(now.Year, now.Month, now.Day, 06, 0, 0);
                 redisClient.Set<DateTime?>("LastSummarySchindlerDeviceReport", thisMorning);
             }
+
+            createFullReportAndSend(redisClient, new string[] { "2102351hnf1173000050", "2102351hnf1173000046" }.ToList());
+
         }
 
         /// <summary>
@@ -648,6 +651,117 @@ namespace DeviceStatus
 
             LoggerHelper.LogInfoWriter(logger, "  Done!", ConsoleColor.Green);
         }
+
+        /// <summary>
+        /// create and sent the report of the last 48 hours of changes
+        /// </summary>
+        private static void createFullReportAndSend(IRedisClient redisClient, List<string> deviceIdList, int historyLenght = 48)
+        {
+            LoggerHelper.LogInfoWriter(logger, "Creating and sending full report...");
+
+            var message = string.Empty;
+
+            message += "<h1>Schindler Full Report</h1>";
+
+            var attribute = DeviceStatusTopics.IPv6;
+
+            message += "<h2>For the attribute '" + attribute + "' we have the following changes</h2>";
+
+            bool someDevice = false;
+
+            foreach (var deviceId in deviceIdList)
+            {
+                //get the latest device details...
+                var deviceDetails = GetRedisDeviceDetails(redisClient, deviceId);
+                
+                var history = GetRedisHistory<string>(redisClient, deviceId, attribute);
+
+                if (history != null && history.Count > 0)
+                {
+                    //keep just the last 48 hours! 
+                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderByDescending(i => i.TimeStamp).ToList();
+
+                    //check for IP changes (so... min 2 entries) over the last XX hours...
+                    message += ("<br><br><b>DeviceId: " + deviceId + "</b><br>");
+
+                    if (deviceDetails != null)
+                    {
+                        message += ("Device Name: " + deviceDetails.Value.name + "<br>");
+                        message += ("Device Model: " + deviceDetails.Value.device_model_id + "<br>");
+
+                        if (deviceDetails.Value.deviceInfoStatus != null)
+                        {
+                            if (deviceDetails.Value.deviceInfoStatus.machineInfo != null)
+                            {
+                                message += ("Predix Machine Version: " + deviceDetails.Value.deviceInfoStatus.machineInfo.machineVersion + "<br>");
+                            }
+
+                            if (deviceDetails.Value.deviceInfoStatus.simInfo != null)
+                            {
+                                var firstSimDetails = deviceDetails.Value.deviceInfoStatus.simInfo.FirstOrDefault();
+
+                                if (firstSimDetails != null)
+                                {
+                                    message += ("ICCID: " + firstSimDetails.iccid + "<br>");
+
+                                    if (firstSimDetails.attributes != null)
+                                    {
+                                        message += ("IMSI: " + firstSimDetails.attributes.imsi.value + "<br>");
+                                        message += ("MNO: " + firstSimDetails.attributes.mno.value + "<br>");
+                                        message += ("Cellular Module: " + firstSimDetails.attributes.module.value + "<br>");
+                                        message += ("Module Firmware: " + firstSimDetails.attributes.firmware.value + "<br>");
+                                    }
+                                }
+                            }
+
+                            if (deviceDetails.Value.deviceInfoStatus.cellularStatus != null)
+                            {
+                                var firstSimDetials = deviceDetails.Value.deviceInfoStatus.cellularStatus.FirstOrDefault();
+
+                                if (firstSimDetials != null)
+                                {
+                                    message += ("Last Mobile Network Mode: " + firstSimDetials.networkMode + "<br>");
+
+                                    if (firstSimDetials.signalStrength != null)
+                                    {
+                                        message += ("Last RSSI: " + firstSimDetials.signalStrength.rssi + "<br>");
+                                        message += ("Last RSRP: " + firstSimDetials.signalStrength.rsrp + "<br>");
+                                        message += ("Last RSRQ: " + firstSimDetials.signalStrength.rsrq + "<br>");
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
+
+                    message += ("IPv6 Changes: " + history.Count + "<br>");
+
+                    someDevice = true;
+
+                    foreach (var item in history)
+                    {
+                        message += string.Format("<br> {0}", item.ToJSON());
+                    }
+                    
+                }
+            }
+
+            if (!someDevice)
+            {
+                message += "No changes for the Topic";
+            }
+
+            message += "<br><br><br>";
+
+            SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", message);
+
+            LoggerHelper.LogInfoWriter(logger, "  Done!", ConsoleColor.Green);
+        }
+
+
+
+
 
         public static void SendEmail(string[] sendToName, string[] sendToAddress, string subject, string messageBody)
         {
