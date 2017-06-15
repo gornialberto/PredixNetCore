@@ -456,7 +456,7 @@ namespace DeviceStatus
                 createDailyReportAndSend(redisClient, deviceIdList);
 
                 //fix the report time 10 am UTC  (8AM Swiss time)
-                var thisMorning = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0);
+                var thisMorning = new DateTime(now.Year, now.Month, now.Day, 06, 0, 0);
                 redisClient.Set<DateTime?>("LastSummarySchindlerDeviceReport", thisMorning);
             }
         }
