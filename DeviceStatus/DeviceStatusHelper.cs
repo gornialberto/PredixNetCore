@@ -460,7 +460,7 @@ namespace DeviceStatus
                 redisClient.Set<DateTime?>("LastSummarySchindlerDeviceReport", thisMorning);
             }
 
-            createFullReportAndSend(redisClient, new string[] { "2102351hnf1173000050", "2102351hnf1173000046" }.ToList());
+            //createFullReportAndSend(redisClient, new string[] { "2102351hnf1173000050", "2102351hnf1173000046" }.ToList());
 
         }
 
