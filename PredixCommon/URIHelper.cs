@@ -72,6 +72,17 @@ namespace PredixCommon
         }
 
 
+        public static Uri edgeManagerV1GetAvailableCommands = new Uri("/svc/command/v1/commands", UriKind.Relative);
+
+        public static Uri edgeManagerV1ExecuteCommand = new Uri("svc/command/v1/commands/devices", UriKind.Relative);
+
+        public static string edgeManagerV1GetCommandTaskOutputTemplate = "/svc/command/v1/tasks/{{taskId}}/output";
+
+        public static Uri GetEdgeManagerV1GetCommandTaskOutputUri(string taskId)
+        {
+            return new Uri(edgeManagerV1GetCommandTaskOutputTemplate.Replace("{{taskId}}", taskId), UriKind.Relative);
+        }
+            
         ///
         ///TIME SERIES AREA
         ///
@@ -81,5 +92,6 @@ namespace PredixCommon
         public static Uri timeSeriesQueryTagRelativeUri = new Uri("/v1/tags", UriKind.Relative);
 
         public static Uri timeSeriesQueryTagValueRelativeUri = new Uri("/v1/datapoints", UriKind.Relative);
+        
     }
 }

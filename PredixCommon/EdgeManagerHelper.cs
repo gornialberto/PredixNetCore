@@ -186,5 +186,102 @@ namespace PredixCommon
             return;
         }
 
+
+
+
+
+        public async static Task<List<CommandDefinitionResponse>> GetAvailableCommands(string edgeManagerBaseUrl, UAAToken accessToken)
+        {
+            logger.Debug("Get Available commands.");
+
+            HttpClient httpClient = new HttpClient();
+
+            //this is the URL of the UAA
+            Uri edgeManagerBaseUri = new Uri(edgeManagerBaseUrl, UriKind.Absolute);
+
+            Uri requestUri = new Uri(edgeManagerBaseUri, URIHelper.edgeManagerV1GetAvailableCommands);
+
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(accessToken.TokenType, accessToken.AccessToken);
+            request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue();
+            request.Headers.CacheControl.NoCache = true;
+
+            logger.Debug("Sending Http Request");
+
+            var httpResponseMessage = await httpClient.SendAsync(request);
+
+            logger.Debug("Http Request executed");
+
+            LatestHTTPStatusCode = httpResponseMessage.StatusCode;
+
+            if (httpResponseMessage.IsSuccessStatusCode)
+            {
+                logger.Debug("Http Response Success Status Code " + httpResponseMessage.StatusCode);
+
+                var contentStream = await httpResponseMessage.Content.ReadAsStreamAsync();
+
+                List<CommandDefinitionResponse> commandList = CommandDefinitionResponse.DeserializeStream(new System.IO.StreamReader(contentStream));
+
+                return commandList;
+            }
+            else
+            {
+                logger.Error("Http Response Failure Status Code " + httpResponseMessage.StatusCode);
+            }
+
+            return null;
+        }
+
+
+
+        public async static Task<CommandResponse> ExecuteCommand(string edgeManagerBaseUrl, UAAToken accessToken, CommandRequest commandRequest)
+        {
+            logger.Debug("Execute Command");
+
+            HttpClient httpClient = new HttpClient();
+
+            //this is the URL of the UAA
+            Uri edgeManagerBaseUri = new Uri(edgeManagerBaseUrl, UriKind.Absolute);
+
+            Uri requestUri = new Uri(edgeManagerBaseUri, URIHelper.edgeManagerV1ExecuteCommand);
+
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, requestUri);
+
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(accessToken.TokenType, accessToken.AccessToken);
+            request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue();
+            request.Headers.CacheControl.NoCache = true;
+
+            var deviceModelJSON = Newtonsoft.Json.JsonConvert.SerializeObject(commandRequest);
+
+            request.Content = new StringContent(deviceModelJSON, Encoding.UTF8, "application/json");
+
+
+            logger.Debug("Sending Http Request");
+
+            var httpResponseMessage = await httpClient.SendAsync(request);
+
+            logger.Debug("Http Request executed");
+
+            LatestHTTPStatusCode = httpResponseMessage.StatusCode;
+
+            if (httpResponseMessage.IsSuccessStatusCode)
+            {
+                logger.Debug("Http Response Success Status Code " + httpResponseMessage.StatusCode);
+
+                var contentStream = await httpResponseMessage.Content.ReadAsStreamAsync();
+
+                CommandResponse commandResponse = CommandResponse.DeserializeStream(new System.IO.StreamReader(contentStream));
+
+                return commandResponse;
+            }
+            else
+            {
+                logger.Error("Http Response Failure Status Code " + httpResponseMessage.StatusCode);
+
+                return null;
+            }
+        }
+        
     }
 }

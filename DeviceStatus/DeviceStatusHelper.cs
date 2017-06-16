@@ -11,6 +11,8 @@ using Newtonsoft.Json;
 using ServiceStack.Redis;
 using MimeKit;
 using MailKit.Net.Smtp;
+using PredixCommon.Entities;
+using System.Threading.Tasks;
 
 namespace DeviceStatus
 {
@@ -432,10 +434,11 @@ namespace DeviceStatus
         /// Check for the necessity of executing the report...
         /// </summary>
         /// <param name="redisClient"></param>
-        public static void CheckHistoryAndSendReport(IRedisClient redisClient, List<string> deviceIdList)
+        public async static Task CheckHistoryAndSendReport(string baseUAAUrl, string clientID, string clientSecret, string edgeManagerBaseUrl, 
+            IRedisClient redisClient, List<string> deviceIdList)
         {
             var now = DateTime.UtcNow;
-
+            
             ////when it was last report??   
             //var lastReport = redisClient.Get<DateTime?>("LastSchindlerDeviceReport");
 
@@ -445,7 +448,7 @@ namespace DeviceStatus
             //}
 
             //redisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
-            
+
 
 
             var lastDailyReport = redisClient.Get<DateTime?>("LastSummarySchindlerDeviceReport");
@@ -453,7 +456,8 @@ namespace DeviceStatus
             if ((lastDailyReport != null) && ((now - lastDailyReport.Value) > TimeSpan.FromHours(24)))
             {
                 //daily report will include just the devices with multiple IP changes...
-                createDailyReportAndSend(redisClient, deviceIdList);
+                await createDailyReportAndSend(baseUAAUrl, clientID, clientSecret, 
+                     edgeManagerBaseUrl, redisClient, deviceIdList);
 
                 //fix the report time 10 am UTC  (8AM Swiss time)
                 var thisMorning = new DateTime(now.Year, now.Month, now.Day, 06, 0, 0);
@@ -537,10 +541,34 @@ namespace DeviceStatus
         /// <summary>
         /// create and sent the report of the last 48 hours of changes
         /// </summary>
-        private static void createDailyReportAndSend(IRedisClient redisClient, List<string> deviceIdList, int historyLenght = 48)
+        private async static Task createDailyReportAndSend(string baseUAAUrl, string clientID, string clientSecret, string edgeManagerBaseUrl, 
+            IRedisClient redisClient, List<string> deviceIdList, int historyLenght = 48)
         {
             LoggerHelper.LogInfoWriter(logger, "Creating and sending daily report...");
             
+            UAAToken accessToken = null;
+
+            try
+            {
+                accessToken = await UAAHelper.GetClientCredentialsGrantAccessToken(baseUAAUrl, clientID, clientSecret);
+
+                if (accessToken != null)
+                {
+                    LoggerHelper.LogInfoWriter(logger, "  Token obtained!", ConsoleColor.Green);
+                }
+                else
+                {
+                    LoggerHelper.LogErrorWriter(logger, "  Error obtaining Token");
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.LogErrorWriter(logger, string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                return;
+            }
+
+
+
             var message = string.Empty;
 
             message += "<h1>Schindler Daily Report</h1>";
@@ -550,7 +578,9 @@ namespace DeviceStatus
             message += "<h2>For the attribute '" + attribute + "' we have the following changes</h2>";
 
             bool someDevice = false;
-                
+
+            List<string> devicesForWhichRequiresOpenVPNLogs = new List<string>();
+
             foreach (var deviceId in deviceIdList)
             {
                 //get the latest device details...
@@ -572,8 +602,8 @@ namespace DeviceStatus
                     //keep just the last 48 hours! 
                     history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderByDescending(i => i.TimeStamp).ToList();
 
-                    //check for IP changes (so... min 2 entries) over the last XX hours...
-                    if (history.Count > 1)
+                    //check for IP changes (so... min 3 entries) over the last XX hours...
+                    if (history.Count > 2)
                     {
                         message += ("<br><br><b>DeviceId: " + deviceId + "</b><br>");
 
@@ -636,6 +666,9 @@ namespace DeviceStatus
                         {
                             message += string.Format("<br> {0}", item.ToJSON());
                         }
+
+                        //retreive the logs for the device...  
+                        devicesForWhichRequiresOpenVPNLogs.Add(deviceId);
                     }
                 }
             }
@@ -646,6 +679,46 @@ namespace DeviceStatus
             }
 
             message += "<br><br><br>";
+
+
+            if (devicesForWhichRequiresOpenVPNLogs.Count > 0)
+            {
+                var commands = await EdgeManagerHelper.GetAvailableCommands(edgeManagerBaseUrl, accessToken);
+
+                if (commands != null)
+                {
+                    var getlogCommand = commands.Where(c => c.commandDisplayName.Contains("Predix Machine: Get Log")).FirstOrDefault();
+
+                    if (getlogCommand != null)
+                    {
+                        var getLogCommandID = getlogCommand.commandId;
+
+                        //execute the get log command and keep the task id in redis...
+
+                        CommandRequest getOpenVPNLogCommandRequest = new CommandRequest();
+                        getOpenVPNLogCommandRequest.commandId = getLogCommandID;
+                        getOpenVPNLogCommandRequest.type = "Machine";
+
+                        var fileParam = new GetLogCommandParams();
+                        fileParam.name = "machine:/machine/openvpn.log";
+
+                        getOpenVPNLogCommandRequest.@params = fileParam;
+                        getOpenVPNLogCommandRequest.name = "Get OpenVPN Log for daily report";
+
+                        getOpenVPNLogCommandRequest.devices = devicesForWhichRequiresOpenVPNLogs;
+                        
+
+                        var getLogResponse = await EdgeManagerHelper.ExecuteCommand(edgeManagerBaseUrl, accessToken, getOpenVPNLogCommandRequest);
+
+                        
+                        
+                    }
+
+                }
+                
+            } //end getting logs
+
+
            
             SendEmail(new string[] { "Alberto Gorni"  }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", message);
 
