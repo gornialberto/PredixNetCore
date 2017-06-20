@@ -282,6 +282,68 @@ namespace PredixCommon
                 return null;
             }
         }
-        
+
+
+
+
+
+        public async static Task<CommandTaskResponseContent> GetTaskResult(string edgeManagerBaseUrl, UAAToken accessToken, CommandTaskResponse commandtaskResponse)
+        {
+            logger.Debug("Get Task Reuslt: " + commandtaskResponse.taskId);
+
+            HttpClient httpClient = new HttpClient();
+            httpClient.BaseAddress = new Uri(edgeManagerBaseUrl);
+
+            //this is the URL of the call...
+            Uri taskOutputUri = URIHelper.GetEdgeManagerV1GetCommandTaskOutputUri(commandtaskResponse.taskId);
+
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, taskOutputUri);
+
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(accessToken.TokenType, accessToken.AccessToken);
+            request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue();
+            request.Headers.CacheControl.NoCache = true;
+            
+            logger.Debug("Sending Http Request");
+
+            var httpResponseMessage = await httpClient.SendAsync(request);
+
+            logger.Debug("Http Request executed");
+
+            LatestHTTPStatusCode = httpResponseMessage.StatusCode;
+
+            CommandTaskResponseContent response = null;
+
+            if (!httpResponseMessage.IsSuccessStatusCode)
+            {
+                logger.Debug("Http Response Failure Status Code " + httpResponseMessage.StatusCode);
+
+                var contentStream = await httpResponseMessage.Content.ReadAsStreamAsync();
+
+                response = CommandTaskResponseContent.DeserializeStream(new System.IO.StreamReader(contentStream));
+
+                response.taskId = commandtaskResponse.taskId;
+                response.deviceId = commandtaskResponse.deviceId;
+
+                return response;
+            }
+            else
+            {
+                logger.Error("Http Response Success Status Code " + httpResponseMessage.StatusCode);
+
+                response = new CommandTaskResponseContent();
+                response.code = (int) httpResponseMessage.StatusCode;
+
+                var message = await httpResponseMessage.Content.ReadAsStringAsync();
+                response.message = message;
+
+                response.taskId = commandtaskResponse.taskId;
+                response.deviceId = commandtaskResponse.deviceId;
+
+                return response;
+            }
+        }
+
+
+
     }
 }

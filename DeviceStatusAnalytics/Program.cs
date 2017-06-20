@@ -29,12 +29,51 @@ namespace DeviceStatusAnalytics
             LoggerHelper.LogInfoWriter(logger," Device Status Logger v" + versionNumber);
             LoggerHelper.LogInfoWriter(logger,"-------------------------------------------");
 
-            
-            Environment.SetEnvironmentVariable("redisServerAddress", "77.95.143.115");
+     
+
+
+            string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
+            string clientID = Environment.GetEnvironmentVariable("clientID");
+            string clientSecret = Environment.GetEnvironmentVariable("clientSecret");
+            string edgeManagerBaseUrl = Environment.GetEnvironmentVariable("edgeManagerBaseUrl");
+
 
             string redisServerAddress = Environment.GetEnvironmentVariable("redisServerAddress");
             
             bool inputValid = true;
+
+            if (string.IsNullOrEmpty(baseUAAUrl))
+            {
+                string errMsg = string.Format("Base UAA Url parameter is empty");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+                inputValid = false;
+            }
+
+            if (string.IsNullOrEmpty(clientID))
+            {
+                string errMsg = string.Format("Client ID parameter is empty");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+                inputValid = false;
+            }
+
+            if (string.IsNullOrEmpty(clientSecret))
+            {
+                string errMsg = string.Format("Client Secret parameter is empty");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+                inputValid = false;
+            }
+
+            if (string.IsNullOrEmpty(edgeManagerBaseUrl))
+            {
+                string errMsg = string.Format("Edge Manager Base Url parameter is empty");
+                logger.Fatal(errMsg);
+                Console.WriteLine(errMsg);
+                inputValid = false;
+            }
+
 
             if (string.IsNullOrEmpty(redisServerAddress))
             {
@@ -49,7 +88,7 @@ namespace DeviceStatusAnalytics
                 try
                 {
                     //now execute the async part...              
-                    MainAsync(redisServerAddress).Wait();
+                    MainAsync(baseUAAUrl, clientID, clientSecret, edgeManagerBaseUrl, redisServerAddress).Wait();
                 }
                 catch (Exception ex)
                 {
@@ -67,7 +106,7 @@ namespace DeviceStatusAnalytics
 
         
 
-        static async Task MainAsync(string redisServerAddress)
+        static async Task MainAsync(string baseUAAUrl, string clientID, string clientSecret, string edgeManagerBaseUrl, string redisServerAddress)
         {
             LoggerHelper.LogInfoWriter(logger, "Starting...");
 
@@ -94,9 +133,9 @@ namespace DeviceStatusAnalytics
                         }
                     }
 
-                    DeviceStatus.DeviceStatusHelper.CheckHistoryAndSendReport(redisClient, deviceList.Value);
 
-                    LoggerHelper.LogInfoWriter(logger, string.Format( "Devices succesfully checked at {0}! Now wait for few time for the next update...", DateTime.UtcNow ));                    
+                    //async execution...
+                    DeviceStatus.DeviceStatusHelper.CheckHistoryAndSendReport(baseUAAUrl, clientID, clientSecret, edgeManagerBaseUrl,redisClient, deviceList.Value);                    
                 }
                 
                 //wait for 5 minutes...  before next check...

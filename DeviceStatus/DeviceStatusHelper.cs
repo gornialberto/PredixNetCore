@@ -453,15 +453,36 @@ namespace DeviceStatus
 
             var lastDailyReport = redisClient.Get<DateTime?>("LastSummarySchindlerDeviceReport");
 
-            if ((lastDailyReport != null) && ((now - lastDailyReport.Value) > TimeSpan.FromHours(24)))
+            try
             {
-                //daily report will include just the devices with multiple IP changes...
-                await createDailyReportAndSend(baseUAAUrl, clientID, clientSecret, 
-                     edgeManagerBaseUrl, redisClient, deviceIdList);
+                if (lastDailyReport != null)
+                {
+                    if ((now - lastDailyReport.Value) > TimeSpan.FromHours(24))
+                    {
+                        //daily report will include just the devices with multiple IP changes...
+                        await createDailyReportAndSend(baseUAAUrl, clientID, clientSecret,
+                             edgeManagerBaseUrl, redisClient, deviceIdList);
 
-                //fix the report time 10 am UTC  (8AM Swiss time)
-                var thisMorning = new DateTime(now.Year, now.Month, now.Day, 06, 0, 0);
-                redisClient.Set<DateTime?>("LastSummarySchindlerDeviceReport", thisMorning);
+                        //fix the report time 10 am UTC  (8AM Swiss time)
+                        var thisMorning = new DateTime(now.Year, now.Month, now.Day, 06, 0, 0);
+                        redisClient.Set<DateTime?>("LastSummarySchindlerDeviceReport", thisMorning);
+                    }
+                }
+                else
+                {
+                    //daily report will include just the devices with multiple IP changes...
+                    await createDailyReportAndSend(baseUAAUrl, clientID, clientSecret,
+                         edgeManagerBaseUrl, redisClient, deviceIdList);
+
+                    //fix the report time 10 am UTC  (8AM Swiss time)
+                    var thisMorning = new DateTime(now.Year, now.Month, now.Day, 06, 0, 0);
+                    redisClient.Set<DateTime?>("LastSummarySchindlerDeviceReport", thisMorning);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.LogErrorWriter(logger, string.Format("Something wrong during the report genaration.\n{0}", ex.ToString()));
             }
 
             //createFullReportAndSend(redisClient, new string[] { "2102351hnf1173000050", "2102351hnf1173000046" }.ToList());
@@ -680,7 +701,17 @@ namespace DeviceStatus
 
             message += "<br><br><br>";
 
+            var tempFolderPath = System.IO.Path.GetTempPath();
 
+            tempFolderPath = System.IO.Path.Combine(tempFolderPath, "deviceLogs");
+
+            var folderInfo = new System.IO.DirectoryInfo(tempFolderPath);
+
+            if (!folderInfo.Exists)
+            {
+                System.IO.Directory.CreateDirectory(tempFolderPath);
+            }
+            
             if (devicesForWhichRequiresOpenVPNLogs.Count > 0)
             {
                 var commands = await EdgeManagerHelper.GetAvailableCommands(edgeManagerBaseUrl, accessToken);
@@ -710,17 +741,105 @@ namespace DeviceStatus
 
                         var getLogResponse = await EdgeManagerHelper.ExecuteCommand(edgeManagerBaseUrl, accessToken, getOpenVPNLogCommandRequest);
 
-                        
-                        
+                        DateTime pollingStartTime = DateTime.UtcNow;
+
+                        //loop over for max of 10 minutes...
+
+                        bool done = false;
+
+                        List<CommandTaskResponseContent> commandTaskResponseList = new List<CommandTaskResponseContent>();
+
+                        while (!done)
+                        {
+                            //now for each device check if the task is already completed...  trying to get the result of the task...  
+                            //that should be a 404 or the log content...  :)
+
+                            //check only for response that is not already get! 
+                            var alreadyGotOk = commandTaskResponseList.Where(tr => tr.code == 200);
+
+                            if (alreadyGotOk.Count() == getLogResponse.taskResponse.Count)
+                            {
+                                done = true;
+                                continue;
+                            }
+
+                            List<CommandTaskResponseContent> lastNon200TaskOutput = new List<CommandTaskResponseContent>();
+
+                            foreach (var taskResponse in getLogResponse.taskResponse)
+                            {
+                                //check only for response that is not already get!    update the list... 
+                                var thisTaskAlreadyGotOk = commandTaskResponseList.Any(tr => ((tr.taskId == taskResponse.taskId) && (tr.code == 200)));
+
+                                if (!thisTaskAlreadyGotOk)
+                                {   
+                                    //get the task output...
+                                    var taskOutput = await EdgeManagerHelper.GetTaskResult(edgeManagerBaseUrl, accessToken, taskResponse);
+
+                                    if (taskOutput.code == 200)
+                                    {
+                                        //ok this means this is ready!
+                                        commandTaskResponseList.Add(taskOutput);
+
+                                    }
+                                    else
+                                    {
+                                        lastNon200TaskOutput.Add(taskOutput);
+                                    }
+                                }
+                            }
+
+                            if ( DateTime.UtcNow - pollingStartTime > TimeSpan.FromMinutes(3))
+                            {
+                                done = true;  //nothing more...  we got what we got...
+
+                                commandTaskResponseList.AddRange(lastNon200TaskOutput);
+                            }
+                            else
+                            {
+                                //wait for 5 minutes...  before next check...
+                                await Task.Delay(TimeSpan.FromSeconds(30));
+                            }
+                        }
+
+                        //end while loop now we should have the logs here: commandTaskResponseList
+
+                        //serializing the logs as file..
+                        foreach (var item in commandTaskResponseList)
+                        {
+                            var filePath = System.IO.Path.Combine( tempFolderPath, ( item.deviceId + "_openVpn.log"));
+                            System.IO.File.WriteAllText(filePath, item.message);
+                        }
+
                     }
 
                 }
                 
             } //end getting logs
 
+            if (devicesForWhichRequiresOpenVPNLogs.Count > 0)
+            {
+                List<string> logPaths = new List<string>();
 
+                foreach (var deviceId in devicesForWhichRequiresOpenVPNLogs)
+                {
+                    var filePath = System.IO.Path.Combine(tempFolderPath, (deviceId +"_openVpn.log"));
+                    logPaths.Add(filePath);
+                }
+
+                SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", message, logPaths);
+
+                foreach (var file in logPaths)
+                {
+                    System.IO.File.Delete(file);
+                }
+            }
+            else
+            {
+                SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", message);
+            }
+        
            
-            SendEmail(new string[] { "Alberto Gorni"  }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", message);
+           
 
             LoggerHelper.LogInfoWriter(logger, "  Done!", ConsoleColor.Green);
         }
@@ -835,8 +954,15 @@ namespace DeviceStatus
 
 
 
-
-        public static void SendEmail(string[] sendToName, string[] sendToAddress, string subject, string messageBody)
+        /// <summary>
+        /// Send an HTML email with eventually some attachment...
+        /// </summary>
+        /// <param name="sendToName"></param>
+        /// <param name="sendToAddress"></param>
+        /// <param name="subject"></param>
+        /// <param name="messageBody"></param>
+        /// <param name="attachmentPaths"></param>
+        public static void SendEmail(string[] sendToName, string[] sendToAddress, string subject, string messageBody, List<string> attachmentPaths = null )
         {
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress("Predix Bot", "predixbot@gmail.com"));
@@ -848,11 +974,23 @@ namespace DeviceStatus
                        
             message.Subject = subject;
 
-            message.Body = new TextPart(MimeKit.Text.TextFormat.Html)
-            {
-                Text = messageBody
-            };
 
+            var builder = new BodyBuilder();
+
+            // Set the html version of the message text
+            builder.HtmlBody = messageBody;
+
+            if (attachmentPaths != null)
+            {
+                foreach (var attachmentPath in attachmentPaths)
+                {
+                    builder.Attachments.Add(attachmentPath);
+                }
+            }
+            
+            // Now we just need to set the message body and we're done
+            message.Body = builder.ToMessageBody();
+          
             using (var client = new SmtpClient())
             {
                 // For demo-purposes, accept all SSL certificates (in case the server supports STARTTLS)
@@ -870,10 +1008,7 @@ namespace DeviceStatus
                 client.Send(message);
                 client.Disconnect(true);
             }
-
-
+            
         }
-
-     
     }
 }

@@ -13,6 +13,11 @@ namespace PredixCommon.Entities.EdgeManager
         public string deviceId { get; set; }
         public bool success { get; set; }
         public string message { get; set; }
+
+        public override string ToString()
+        {
+            return string.Format("CommandTaskResponse - DeviceId: '{0}' - TaskId: '{1}'", deviceId, taskId);
+        }
     }
 
     public class CommandResponse
@@ -36,7 +41,7 @@ namespace PredixCommon.Entities.EdgeManager
             }
             catch (Exception ex)
             {
-                logger.Fatal(string.Format("Error deserializing CommandDefinitionResponse to JSON.\n\n{0}", readString), ex);
+                logger.Fatal(string.Format("Error deserializing Command Response to JSON.\n\n{0}", readString), ex);
                 throw;
             }
 

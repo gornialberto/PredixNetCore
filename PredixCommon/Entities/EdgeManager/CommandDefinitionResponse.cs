@@ -21,6 +21,12 @@ namespace PredixCommon.Entities.EdgeManager
         public object tenantId { get; set; }
         public string handler { get; set; }
 
+        public override string ToString()
+        {
+            return string.Format("CommandDefinitionResponse - commandDisplayName: '{0}' - commandId: '{1}'", commandDisplayName, commandId);
+        }
+
+
         public static List<CommandDefinitionResponse> DeserializeStream(StreamReader data)
         {
             var readString = data.ReadToEnd();
