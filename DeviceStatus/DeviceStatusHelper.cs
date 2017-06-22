@@ -413,7 +413,7 @@ namespace DeviceStatus
             }
 
             //keep just the last 48 hours! 
-            history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(queueLenghHours)).OrderByDescending(i => i.TimeStamp).ToList();
+            history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(queueLenghHours)).OrderBy(i => i.TimeStamp).ToList();
 
             //add the last update..
             history.Add(liveDeviceData);
@@ -527,7 +527,7 @@ namespace DeviceStatus
                 if (history != null && history.Count > 0)
                 {
                     //keep just the last 48 hours! 
-                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderByDescending(i => i.TimeStamp).ToList();
+                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderBy(i => i.TimeStamp).ToList();
 
                     if (history.Count > 0)
                     {
@@ -646,7 +646,7 @@ namespace DeviceStatus
                 if (history != null && history.Count > 0)
                 {
                     //keep just the last 48 hours! 
-                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderByDescending(i => i.TimeStamp).ToList();
+                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderBy(i => i.TimeStamp).ToList();
 
                     //check for IP changes (so... min 3 entries) over the last XX hours...
                     if (history.Count > 2)
@@ -815,14 +815,14 @@ namespace DeviceStatus
                     message += ("Was not able to download the OpenVPN log for Device: '" + deviceId + "'.<br>");
                 }
 
-                var logsEventOfDevice = logAnalisysResult.Where(i => i.DeviceId == deviceId);
+                var logsEventOfDevice = logAnalisysResult.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).Where(i => i.DeviceId == deviceId);
 
                 if (logsEventOfDevice.Count() > 0)
                 {
                     message += ("<br>Found" + logAnalisysResult.Count + " events on the Logs:<br>");
                 }
 
-                foreach (var item in logsEventOfDevice.OrderByDescending(i =>i.TimeStamp))
+                foreach (var item in logsEventOfDevice.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderBy(i =>i.TimeStamp))
                 {
                     message += (item.TimeStamp + " - " + item.EventDetected + " @ row " + item.LogRow + "<br>");
                 }
@@ -1043,7 +1043,7 @@ namespace DeviceStatus
                 if (history != null && history.Count > 0)
                 {
                     //keep just the last 48 hours! 
-                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderByDescending(i => i.TimeStamp).ToList();
+                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderBy(i => i.TimeStamp).ToList();
 
                     //check for IP changes (so... min 2 entries) over the last XX hours...
                     message += ("<br><br><b>DeviceId: " + deviceId + "</b><br>");
