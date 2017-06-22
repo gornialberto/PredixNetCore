@@ -13,6 +13,7 @@ using MimeKit;
 using MailKit.Net.Smtp;
 using PredixCommon.Entities;
 using System.Threading.Tasks;
+using System.Globalization;
 
 namespace DeviceStatus
 {
@@ -449,8 +450,7 @@ namespace DeviceStatus
 
             //redisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
 
-
-
+            
             var lastDailyReport = redisClient.Get<DateTime?>("LastSummarySchindlerDeviceReport");
 
             try
@@ -590,17 +590,42 @@ namespace DeviceStatus
 
 
 
+            // ------------------------------------------
+            // Create the Temporary Folder for the Device Logs download
+
+            var tempFolderPath = System.IO.Path.GetTempPath();
+
+            tempFolderPath = System.IO.Path.Combine(tempFolderPath, "deviceLogs");
+
+            var folderInfo = new System.IO.DirectoryInfo(tempFolderPath);
+
+            if (!folderInfo.Exists)
+            {
+                LoggerHelper.LogInfoWriter(logger, "Creating temporary folder to download the logs..." + tempFolderPath);
+
+                System.IO.Directory.CreateDirectory(tempFolderPath);
+            }
+
+            // ------------------------------------------
+
+
             var message = string.Empty;
 
             message += "<h1>Schindler Daily Report</h1>";
 
-            var attribute = DeviceStatusTopics.IPv6;
+            var ipv6AttributeName = DeviceStatusTopics.IPv6;
 
-            message += "<h2>For the attribute '" + attribute + "' we have the following changes</h2>";
+            message += "<h2>For the attribute '" + ipv6AttributeName + "' we have the following changes</h2>";
 
             bool someDevice = false;
 
-            List<string> devicesForWhichRequiresOpenVPNLogs = new List<string>();
+            // ------------------------------------------
+            // 
+
+            LoggerHelper.LogInfoWriter(logger, "Getting Device Status & History from Redis");
+
+            Dictionary<string, ValueTimeStamp<DeviceDetails>> devicesDetailsThatMatter  = new Dictionary<string, ValueTimeStamp<DeviceDetails>>();
+            Dictionary<string, List<ValueTimeStamp<string>>> ipv6ListPerDevice = new Dictionary<string, List<ValueTimeStamp<string>>>();
 
             foreach (var deviceId in deviceIdList)
             {
@@ -616,8 +641,8 @@ namespace DeviceStatus
                     }
                 }
 
-                var history = GetRedisHistory<string>(redisClient, deviceId, attribute);
-                                
+                var history = GetRedisHistory<string>(redisClient, deviceId, ipv6AttributeName);
+
                 if (history != null && history.Count > 0)
                 {
                     //keep just the last 48 hours! 
@@ -625,223 +650,323 @@ namespace DeviceStatus
 
                     //check for IP changes (so... min 3 entries) over the last XX hours...
                     if (history.Count > 2)
-                    {
-                        message += ("<br><br><b>DeviceId: " + deviceId + "</b><br>");
-
-                        if (deviceDetails != null)
-                        {
-                            message += ("Device Name: " + deviceDetails.Value.name + "<br>");
-                            message += ("Device Model: " + deviceDetails.Value.device_model_id + "<br>");
-                            
-                            if (deviceDetails.Value.deviceInfoStatus != null)
-                            {
-                                if ( deviceDetails.Value.deviceInfoStatus.machineInfo != null)
-                                {
-                                    message += ("Predix Machine Version: " + deviceDetails.Value.deviceInfoStatus.machineInfo.machineVersion + "<br>");
-                                }
-
-                                if (deviceDetails.Value.deviceInfoStatus.simInfo != null)
-                                {
-                                    var firstSimDetails = deviceDetails.Value.deviceInfoStatus.simInfo.FirstOrDefault();
-
-                                    if (firstSimDetails != null)
-                                    {
-                                        message += ("ICCID: " + firstSimDetails.iccid + "<br>");
-
-                                        if (firstSimDetails.attributes != null)
-                                        {
-                                            message += ("IMSI: " + firstSimDetails.attributes.imsi.value + "<br>");
-                                            message += ("MNO: " + firstSimDetails.attributes.mno.value + "<br>");
-                                            message += ("Cellular Module: " + firstSimDetails.attributes.module.value + "<br>");
-                                            message += ("Module Firmware: " + firstSimDetails.attributes.firmware.value + "<br>");
-                                        }                                        
-                                    }
-                                }
-
-                                if (deviceDetails.Value.deviceInfoStatus.cellularStatus != null)
-                                {
-                                    var firstSimDetials = deviceDetails.Value.deviceInfoStatus.cellularStatus.FirstOrDefault();
-
-                                    if (firstSimDetials != null)
-                                    {
-                                        message += ("Last Mobile Network Mode: " + firstSimDetials.networkMode + "<br>");
-
-                                        if (firstSimDetials.signalStrength != null)
-                                        {
-                                            message += ("Last RSSI: " + firstSimDetials.signalStrength.rssi + "<br>");
-                                            message += ("Last RSRP: " + firstSimDetials.signalStrength.rsrp + "<br>");
-                                            message += ("Last RSRQ: " + firstSimDetials.signalStrength.rsrq + "<br>");
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-
-
-                        message += ("IPv6 Changes: " + history.Count + "<br>");
-
-                        someDevice = true;
-
-                        foreach (var item in history)
-                        {
-                            message += string.Format("<br> {0}", item.ToJSON());
-                        }
-
-                        //retreive the logs for the device...  
-                        devicesForWhichRequiresOpenVPNLogs.Add(deviceId);
+                    {   
+                        devicesDetailsThatMatter.Add(deviceId, deviceDetails);
+                        ipv6ListPerDevice.Add(deviceId, history);
                     }
                 }
             }
+
+            // ------------------------------------------
+
+
+            // ------------------------------------------
+            // Downlad the logs for Devices that matters...
+
+            LoggerHelper.LogInfoWriter(logger, "Downloading Logs from " + devicesDetailsThatMatter.Keys.Count + " devices.");
+
+            List<string> logPaths = new List<string>();
+            List<LogEventDetected> machineAnalisysResult = null;
+            List<CommandTaskResponseContent> machineLogsTaskResponseList = null;
+            List<CommandTaskResponseContent> openVPNTaskResponseList = null;
+
+
+            var commands = await EdgeManagerHelper.GetAvailableCommands(edgeManagerBaseUrl, accessToken);
+
+            if (commands != null)
+            {
+                var getlogCommand = commands.Where(c => c.commandDisplayName.Contains("Predix Machine: Get Log")).FirstOrDefault();
+
+                if (getlogCommand != null)
+                {   
+                    var getLogCommandID = getlogCommand.commandId;
+
+                    var devicesForWhichRequiresLogs = devicesDetailsThatMatter.Keys.ToList();
+
+                    machineLogsTaskResponseList = await getOpenVpnLogs(edgeManagerBaseUrl, accessToken,
+                          devicesForWhichRequiresLogs, getLogCommandID, "machine:/machine/machine.log", "Get Machine Log for daily report");
+
+                    //serializing the logs as file..
+                    foreach (var item in machineLogsTaskResponseList)
+                    {
+                        var filePath = System.IO.Path.Combine(tempFolderPath, (item.deviceId + "_machine.log"));
+                        System.IO.File.WriteAllText(filePath, item.message);
+                        logPaths.Add(filePath);
+                    }
+
+                    LoggerHelper.LogInfoWriter(logger, "Machine Logs downloaded");
+
+                    // Analyze the Machine Logs!
+                    machineAnalisysResult = analizeMachineLogs(machineLogsTaskResponseList);
+
+                    if (machineAnalisysResult != null)
+                    {
+                        LoggerHelper.LogInfoWriter(logger, "Founds " + machineAnalisysResult.Count + " logs events that matter.");
+                    }
+
+                    LoggerHelper.LogInfoWriter(logger, "Downloading OpenVPN Logs");
+
+                    openVPNTaskResponseList = await getOpenVpnLogs(edgeManagerBaseUrl, accessToken,
+                           devicesForWhichRequiresLogs, getLogCommandID, "machine:/machine/openvpn.log", "Get OpenVPN Log for daily report");
+
+                    //serializing the logs as file..
+                    foreach (var item in openVPNTaskResponseList)
+                    {
+                        var filePath = System.IO.Path.Combine(tempFolderPath, (item.deviceId + "_openVpn.log"));
+                        System.IO.File.WriteAllText(filePath, item.message);
+                        logPaths.Add(filePath);
+                    }
+
+                    LoggerHelper.LogInfoWriter(logger, "OpenVPN Logs downloaded");
+                }
+            }
+
+            // ------------------------------------------
+
+            foreach (var deviceId in devicesDetailsThatMatter.Keys)
+            {
+                //get the latest device details...
+                var deviceDetails = devicesDetailsThatMatter[deviceId];
+                var history = ipv6ListPerDevice[deviceId]; 
+                 
+                message += ("<br><br><b>DeviceId: " + deviceId + "</b><br>");
+
+                if (deviceDetails != null)
+                {
+                    message += ("Device Name: " + deviceDetails.Value.name + "<br>");
+                    message += ("Device Model: " + deviceDetails.Value.device_model_id + "<br>");
+                            
+                    if (deviceDetails.Value.deviceInfoStatus != null)
+                    {
+                        if ( deviceDetails.Value.deviceInfoStatus.machineInfo != null)
+                        {
+                            message += ("Predix Machine Version: " + deviceDetails.Value.deviceInfoStatus.machineInfo.machineVersion + "<br>");
+                        }
+
+                        if (deviceDetails.Value.deviceInfoStatus.simInfo != null)
+                        {
+                            var firstSimDetails = deviceDetails.Value.deviceInfoStatus.simInfo.FirstOrDefault();
+
+                            if (firstSimDetails != null)
+                            {
+                                message += ("ICCID: " + firstSimDetails.iccid + "<br>");
+
+                                if (firstSimDetails.attributes != null)
+                                {
+                                    message += ("IMSI: " + firstSimDetails.attributes.imsi.value + "<br>");
+                                    message += ("MNO: " + firstSimDetails.attributes.mno.value + "<br>");
+                                    message += ("Cellular Module: " + firstSimDetails.attributes.module.value + "<br>");
+                                    message += ("Module Firmware: " + firstSimDetails.attributes.firmware.value + "<br>");
+                                }                                        
+                            }
+                        }
+
+                        if (deviceDetails.Value.deviceInfoStatus.cellularStatus != null)
+                        {
+                            var firstSimDetials = deviceDetails.Value.deviceInfoStatus.cellularStatus.FirstOrDefault();
+
+                            if (firstSimDetials != null)
+                            {
+                                message += ("Last Mobile Network Mode: " + firstSimDetials.networkMode + "<br>");
+
+                                if (firstSimDetials.signalStrength != null)
+                                {
+                                    message += ("Last RSSI: " + firstSimDetials.signalStrength.rssi + "<br>");
+                                    message += ("Last RSRP: " + firstSimDetials.signalStrength.rsrp + "<br>");
+                                    message += ("Last RSRQ: " + firstSimDetials.signalStrength.rsrq + "<br>");
+                                }
+                            }
+                        }
+                    }
+                }
+                        
+                message += ("IPv6 Changes: " + history.Count + "<br>");
+
+                someDevice = true;
+
+                foreach (var item in history)
+                {
+                    message += string.Format("<br> {0}", item.ToJSON());
+                }
+
+
+                //write now logs analisys..
+                var machineLog = machineLogsTaskResponseList.Where(i => i.deviceId == deviceId).FirstOrDefault();
+
+                if (machineLog.code == 200)
+                {
+                    message += ("Machine log for Device: '" + deviceId + "' is available attached to this email.<br>");
+                }
+                else
+                {
+                    message += ("Was not able to download the Machine log for Device: '" + deviceId + "'.<br>");
+                }
+
+                var openVPNLog = openVPNTaskResponseList.Where(i => i.deviceId == deviceId).FirstOrDefault();
+
+                if (openVPNLog.code == 200)
+                {
+                    message += ("OpenVPN log for Device: '" + deviceId + "' is available attached to this email.<br>");
+                }
+                else
+                {
+                    message += ("Was not able to download the OpenVPN log for Device: '" + deviceId + "'.<br>");
+                }
+
+                var logsEventOfDevice = machineAnalisysResult.Where(i => i.DeviceId == deviceId);
+
+                if (logsEventOfDevice.Count() > 0)
+                {
+                    message += ("<br>Found" + machineAnalisysResult.Count + " events on the Machine Logs:<br>");
+                }
+
+                foreach (var item in logsEventOfDevice)
+                {
+                    message += (item.EventDetected + " at " + item.TimeStamp + " for Device '" + item.DeviceId + "' @ row " + item.LogRow + "<br>");
+                }
+
+            } //end device id loop :)
                 
             if (!someDevice)
             {
-                message += "No changes for the Topic";
+                message += "No major changes for any devices!  Good! ";
             }
 
-            message += "<br><br><br>";
+            LoggerHelper.LogInfoWriter(logger, "Sending the email...");
 
-            var tempFolderPath = System.IO.Path.GetTempPath();
+            //send the mail with the attachments...
+            SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", 
+                message, logPaths);
 
-            tempFolderPath = System.IO.Path.Combine(tempFolderPath, "deviceLogs");
-
-            var folderInfo = new System.IO.DirectoryInfo(tempFolderPath);
-
-            if (!folderInfo.Exists)
+            //and delete the file...
+            foreach (var file in logPaths)
             {
-                System.IO.Directory.CreateDirectory(tempFolderPath);
-            }
-            
-            if (devicesForWhichRequiresOpenVPNLogs.Count > 0)
-            {
-                var commands = await EdgeManagerHelper.GetAvailableCommands(edgeManagerBaseUrl, accessToken);
+                System.IO.File.Delete(file);
+            }      
+        
+            LoggerHelper.LogInfoWriter(logger, "  Report Done!", ConsoleColor.Green);
+        }
 
-                if (commands != null)
+        private static List<LogEventDetected> analizeMachineLogs(List<CommandTaskResponseContent> machineLogsTaskResponseList)
+        {
+            List<LogEventDetected> events = new List<LogEventDetected>();
+           
+            foreach (var machineLog in machineLogsTaskResponseList)
+            {
+                if (machineLog.code == 200)
                 {
-                    var getlogCommand = commands.Where(c => c.commandDisplayName.Contains("Predix Machine: Get Log")).FirstOrDefault();
+                    //ok this is a log..
+                    var logRows = machineLog.message.Split('\n');
 
-                    if (getlogCommand != null)
+                    for(int rowIndex = 0; rowIndex < logRows.Count(); rowIndex++)
                     {
-                        var getLogCommandID = getlogCommand.commandId;
+                        var row = logRows[rowIndex];
 
-                        //execute the get log command and keep the task id in redis...
-
-                        CommandRequest getOpenVPNLogCommandRequest = new CommandRequest();
-                        getOpenVPNLogCommandRequest.commandId = getLogCommandID;
-                        getOpenVPNLogCommandRequest.type = "Machine";
-
-                        var fileParam = new GetLogCommandParams();
-                        fileParam.name = "machine:/machine/openvpn.log";
-
-                        getOpenVPNLogCommandRequest.@params = fileParam;
-                        getOpenVPNLogCommandRequest.name = "Get OpenVPN Log for daily report";
-
-                        getOpenVPNLogCommandRequest.devices = devicesForWhichRequiresOpenVPNLogs;
-                        
-
-                        var getLogResponse = await EdgeManagerHelper.ExecuteCommand(edgeManagerBaseUrl, accessToken, getOpenVPNLogCommandRequest);
-
-                        DateTime pollingStartTime = DateTime.UtcNow;
-
-                        //loop over for max of 10 minutes...
-
-                        bool done = false;
-
-                        List<CommandTaskResponseContent> commandTaskResponseList = new List<CommandTaskResponseContent>();
-
-                        while (!done)
+                        if (row.Contains("[Framework] OSGi Runtime is Starting"))
                         {
-                            //now for each device check if the task is already completed...  trying to get the result of the task...  
-                            //that should be a 404 or the log content...  :)
+                            //Machine restart event detected in the logs!!!
 
-                            //check only for response that is not already get! 
-                            var alreadyGotOk = commandTaskResponseList.Where(tr => tr.code == 200);
+                            //catch the TIME now  2017-06-20 14:53:50,347
 
-                            if (alreadyGotOk.Count() == getLogResponse.taskResponse.Count)
-                            {
-                                done = true;
-                                continue;
-                            }
+                            var timeString = row.Substring(0, 23);
 
-                            List<CommandTaskResponseContent> lastNon200TaskOutput = new List<CommandTaskResponseContent>();
+                            DateTime timeStamp = DateTime.ParseExact(timeString, "yyyy-MM-dd HH:mm:ss,fff", CultureInfo.InvariantCulture);
 
-                            foreach (var taskResponse in getLogResponse.taskResponse)
-                            {
-                                //check only for response that is not already get!    update the list... 
-                                var thisTaskAlreadyGotOk = commandTaskResponseList.Any(tr => ((tr.taskId == taskResponse.taskId) && (tr.code == 200)));
+                            var eventDetected = new LogEventDetected();
+                            eventDetected.DeviceId = machineLog.deviceId;
+                            eventDetected.TimeStamp = timeStamp;
+                            eventDetected.EventDetected = "Predix Machine Restart";
+                            eventDetected.LogRow = rowIndex;
 
-                                if (!thisTaskAlreadyGotOk)
-                                {   
-                                    //get the task output...
-                                    var taskOutput = await EdgeManagerHelper.GetTaskResult(edgeManagerBaseUrl, accessToken, taskResponse);
-
-                                    if (taskOutput.code == 200)
-                                    {
-                                        //ok this means this is ready!
-                                        commandTaskResponseList.Add(taskOutput);
-
-                                    }
-                                    else
-                                    {
-                                        lastNon200TaskOutput.Add(taskOutput);
-                                    }
-                                }
-                            }
-
-                            if ( DateTime.UtcNow - pollingStartTime > TimeSpan.FromMinutes(3))
-                            {
-                                done = true;  //nothing more...  we got what we got...
-
-                                commandTaskResponseList.AddRange(lastNon200TaskOutput);
-                            }
-                            else
-                            {
-                                //wait for 5 minutes...  before next check...
-                                await Task.Delay(TimeSpan.FromSeconds(30));
-                            }
+                            events.Add(eventDetected);
                         }
-
-                        //end while loop now we should have the logs here: commandTaskResponseList
-
-                        //serializing the logs as file..
-                        foreach (var item in commandTaskResponseList)
-                        {
-                            var filePath = System.IO.Path.Combine( tempFolderPath, ( item.deviceId + "_openVpn.log"));
-                            System.IO.File.WriteAllText(filePath, item.message);
-                        }
-
                     }
 
                 }
-                
-            } //end getting logs
+            }
 
-            if (devicesForWhichRequiresOpenVPNLogs.Count > 0)
+            return events;
+        }
+
+        private async static Task<List<CommandTaskResponseContent>> getOpenVpnLogs(string edgeManagerBaseUrl, UAAToken accessToken,
+            List<string> devicesForWhichRequiresLogs, int getLogCommandID, string edgeManagerLogName, string taskDisplayName)
+        {
+            List<CommandTaskResponseContent> commandTaskResponseList = new List<CommandTaskResponseContent>();
+
+            CommandRequest getOpenVPNLogCommandRequest = new CommandRequest();
+            getOpenVPNLogCommandRequest.commandId = getLogCommandID;
+            getOpenVPNLogCommandRequest.type = "Machine";
+
+            var fileParam = new GetLogCommandParams();
+            fileParam.name = edgeManagerLogName; // "machine:/machine/openvpn.log";
+
+            getOpenVPNLogCommandRequest.@params = fileParam;
+            getOpenVPNLogCommandRequest.name = taskDisplayName; // "Get OpenVPN Log for daily report";
+
+            getOpenVPNLogCommandRequest.devices = devicesForWhichRequiresLogs;
+
+
+            var getLogResponse = await EdgeManagerHelper.ExecuteCommand(edgeManagerBaseUrl, accessToken, getOpenVPNLogCommandRequest);
+
+            DateTime pollingStartTime = DateTime.UtcNow;
+
+            //loop over for max of 10 minutes...
+
+            bool done = false;
+
+            while (!done)
             {
-                List<string> logPaths = new List<string>();
+                //now for each device check if the task is already completed...  trying to get the result of the task...  
+                //that should be a 404 or the log content...  :)
 
-                foreach (var deviceId in devicesForWhichRequiresOpenVPNLogs)
+                //check only for response that is not already get! 
+                var alreadyGotOk = commandTaskResponseList.Where(tr => tr.code == 200);
+
+                if (alreadyGotOk.Count() == getLogResponse.taskResponse.Count)
                 {
-                    var filePath = System.IO.Path.Combine(tempFolderPath, (deviceId +"_openVpn.log"));
-                    logPaths.Add(filePath);
+                    done = true;
+                    continue;
                 }
 
-                SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", message, logPaths);
+                List<CommandTaskResponseContent> lastNon200TaskOutput = new List<CommandTaskResponseContent>();
 
-                foreach (var file in logPaths)
+                foreach (var taskResponse in getLogResponse.taskResponse)
                 {
-                    System.IO.File.Delete(file);
+                    //check only for response that is not already get!    update the list... 
+                    var thisTaskAlreadyGotOk = commandTaskResponseList.Any(tr => ((tr.taskId == taskResponse.taskId) && (tr.code == 200)));
+
+                    if (!thisTaskAlreadyGotOk)
+                    {
+                        //get the task output...
+                        var taskOutput = await EdgeManagerHelper.GetTaskResult(edgeManagerBaseUrl, accessToken, taskResponse);
+
+                        if (taskOutput.code == 200)
+                        {
+                            //ok this means this is ready!
+                            commandTaskResponseList.Add(taskOutput);
+
+                        }
+                        else
+                        {
+                            lastNon200TaskOutput.Add(taskOutput);
+                        }
+                    }
+                }
+
+                if (DateTime.UtcNow - pollingStartTime > TimeSpan.FromMinutes(3))
+                {
+                    done = true;  //nothing more...  we got what we got...
+
+                    commandTaskResponseList.AddRange(lastNon200TaskOutput);
+                }
+                else
+                {
+                    //wait for 5 minutes...  before next check...
+                    await Task.Delay(TimeSpan.FromSeconds(30));
                 }
             }
-            else
-            {
-                SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]", message);
-            }
-        
-           
-           
 
-            LoggerHelper.LogInfoWriter(logger, "  Done!", ConsoleColor.Green);
+            return commandTaskResponseList;
         }
 
         /// <summary>
