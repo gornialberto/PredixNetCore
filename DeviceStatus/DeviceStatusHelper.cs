@@ -666,7 +666,7 @@ namespace DeviceStatus
             LoggerHelper.LogInfoWriter(logger, "Downloading Logs from " + devicesDetailsThatMatter.Keys.Count + " devices.");
 
             List<string> logPaths = new List<string>();
-            List<LogEventDetected> machineAnalisysResult = null;
+            List<LogEventDetected> logAnalisysResult = new List<LogEventDetected>();
             List<CommandTaskResponseContent> machineLogsTaskResponseList = null;
             List<CommandTaskResponseContent> openVPNTaskResponseList = null;
 
@@ -697,11 +697,12 @@ namespace DeviceStatus
                     LoggerHelper.LogInfoWriter(logger, "Machine Logs downloaded");
 
                     // Analyze the Machine Logs!
-                    machineAnalisysResult = analizeMachineLogs(machineLogsTaskResponseList);
+                    var machineLogAnalisystResult = analizeDeviceLogs(machineLogsTaskResponseList);
+                    logAnalisysResult.AddRange(machineLogAnalisystResult);
 
-                    if (machineAnalisysResult != null)
+                    if (logAnalisysResult != null)
                     {
-                        LoggerHelper.LogInfoWriter(logger, "Founds " + machineAnalisysResult.Count + " logs events that matter.");
+                        LoggerHelper.LogInfoWriter(logger, "Founds " + logAnalisysResult.Count + " Machine logs events that matter.");
                     }
 
                     LoggerHelper.LogInfoWriter(logger, "Downloading OpenVPN Logs");
@@ -718,6 +719,15 @@ namespace DeviceStatus
                     }
 
                     LoggerHelper.LogInfoWriter(logger, "OpenVPN Logs downloaded");
+
+                    // Analyze the OpenVPN Logs!
+                    var openVPNLogAnalisystResult = analizeDeviceLogs(openVPNTaskResponseList);
+                    logAnalisysResult.AddRange(openVPNLogAnalisystResult);
+
+                    if (openVPNLogAnalisystResult != null)
+                    {
+                        LoggerHelper.LogInfoWriter(logger, "Founds " + openVPNLogAnalisystResult.Count + " Open VPN logs events that matter.");
+                    }
                 }
             }
 
@@ -795,7 +805,7 @@ namespace DeviceStatus
 
                 if (machineLog.code == 200)
                 {
-                    message += ("Machine log for Device: '" + deviceId + "' is available attached to this email.<br>");
+                    message += ("<br>Machine log for Device: '" + deviceId + "' is available attached to this email.<br>");
                 }
                 else
                 {
@@ -813,16 +823,16 @@ namespace DeviceStatus
                     message += ("Was not able to download the OpenVPN log for Device: '" + deviceId + "'.<br>");
                 }
 
-                var logsEventOfDevice = machineAnalisysResult.Where(i => i.DeviceId == deviceId);
+                var logsEventOfDevice = logAnalisysResult.Where(i => i.DeviceId == deviceId);
 
                 if (logsEventOfDevice.Count() > 0)
                 {
-                    message += ("<br>Found" + machineAnalisysResult.Count + " events on the Machine Logs:<br>");
+                    message += ("<br>Found" + logAnalisysResult.Count + " events on the Logs:<br>");
                 }
 
-                foreach (var item in logsEventOfDevice)
+                foreach (var item in logsEventOfDevice.OrderByDescending(i =>i.TimeStamp))
                 {
-                    message += (item.EventDetected + " at " + item.TimeStamp + " for Device '" + item.DeviceId + "' @ row " + item.LogRow + "<br>");
+                    message += (item.LogType + ": " + item.EventDetected + " at " + item.TimeStamp + " @ row " + item.LogRow + "<br>");
                 }
 
             } //end device id loop :)
@@ -847,7 +857,7 @@ namespace DeviceStatus
             LoggerHelper.LogInfoWriter(logger, "  Report Done!", ConsoleColor.Green);
         }
 
-        private static List<LogEventDetected> analizeMachineLogs(List<CommandTaskResponseContent> machineLogsTaskResponseList)
+        private static List<LogEventDetected> analizeDeviceLogs(List<CommandTaskResponseContent> machineLogsTaskResponseList)
         {
             List<LogEventDetected> events = new List<LogEventDetected>();
            
@@ -877,9 +887,54 @@ namespace DeviceStatus
                             eventDetected.TimeStamp = timeStamp;
                             eventDetected.EventDetected = "Predix Machine Restart";
                             eventDetected.LogRow = rowIndex;
+                            eventDetected.LogType = "Machine";
 
                             events.Add(eventDetected);
                         }
+
+
+
+                        if (row.Contains("arm - wrs - linux - gnu[SSL(OpenSSL)][LZO][EPOLL]"))
+                        {
+                            //catch the TIME now  Thu Jun 22 01:46:42 2017
+
+                            var timeString = row.Substring(0, 24);
+
+                            var dateTimeFormats = new string[] { "ddd MMM d HH:mm:ss yyyy", "ddd MMM dd HH:mm:ss yyyy" };
+
+                            DateTime timeStamp = DateTime.ParseExact(timeString, dateTimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal);
+
+                            var eventDetected = new LogEventDetected();
+                            eventDetected.DeviceId = machineLog.deviceId;
+                            eventDetected.TimeStamp = timeStamp;
+                            eventDetected.EventDetected = "OpenVPN Restart";
+                            eventDetected.LogRow = rowIndex;
+                            eventDetected.LogType = "OpenVPN";
+
+                            events.Add(eventDetected);
+                        }
+
+
+                        if (row.Contains("Initialization Sequence Completed"))
+                        {
+                            //catch the TIME now  Thu Jun 22 01:46:42 2017
+
+                            var timeString = row.Substring(0, 24);
+
+                            var dateTimeFormats = new string[] { "ddd MMM d HH:mm:ss yyyy", "ddd MMM dd HH:mm:ss yyyy" };
+
+                            DateTime timeStamp = DateTime.ParseExact(timeString, dateTimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal);
+
+                            var eventDetected = new LogEventDetected();
+                            eventDetected.DeviceId = machineLog.deviceId;
+                            eventDetected.TimeStamp = timeStamp;
+                            eventDetected.EventDetected = "OpenVPN Initialization Sequence Completed";
+                            eventDetected.LogRow = rowIndex;
+                            eventDetected.LogType = "OpenVPN";
+
+                            events.Add(eventDetected);
+                        }
+
                     }
 
                 }

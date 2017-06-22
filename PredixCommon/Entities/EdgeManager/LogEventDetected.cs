@@ -10,5 +10,6 @@ namespace PredixCommon.Entities.EdgeManager
         public DateTime TimeStamp { get; set; }
         public string EventDetected { get; set; }
         public int LogRow { get; set; }
+        public string LogType { get; set; }
     }
 }
