@@ -790,35 +790,27 @@ namespace DeviceStatus
                     }
                 }
                         
-                message += ("IPv6 Changes: " + history.Count + "<br>");
+                message += ("IPv6 Changes: " + history.Count + "<br><br>");
 
                 someDevice = true;
 
                 foreach (var item in history)
                 {
-                    message += string.Format("<br> {0}", item.ToJSON());
+                    message += string.Format(" {0}<br>", item.ToJSON());
                 }
 
 
                 //write now logs analisys..
                 var machineLog = machineLogsTaskResponseList.Where(i => i.deviceId == deviceId).FirstOrDefault();
 
-                if (machineLog.code == 200)
-                {
-                    message += ("<br>Machine log for Device: '" + deviceId + "' is available attached to this email.<br>");
-                }
-                else
+                if (machineLog.code != 200)
                 {
                     message += ("Was not able to download the Machine log for Device: '" + deviceId + "'.<br>");
                 }
 
                 var openVPNLog = openVPNTaskResponseList.Where(i => i.deviceId == deviceId).FirstOrDefault();
 
-                if (openVPNLog.code == 200)
-                {
-                    message += ("OpenVPN log for Device: '" + deviceId + "' is available attached to this email.<br>");
-                }
-                else
+                if (openVPNLog.code != 200)
                 {
                     message += ("Was not able to download the OpenVPN log for Device: '" + deviceId + "'.<br>");
                 }
@@ -832,7 +824,7 @@ namespace DeviceStatus
 
                 foreach (var item in logsEventOfDevice.OrderByDescending(i =>i.TimeStamp))
                 {
-                    message += (item.LogType + ": " + item.EventDetected + " at " + item.TimeStamp + " @ row " + item.LogRow + "<br>");
+                    message += (item.TimeStamp + " - " + item.EventDetected + " @ row " + item.LogRow + "<br>");
                 }
 
             } //end device id loop :)
