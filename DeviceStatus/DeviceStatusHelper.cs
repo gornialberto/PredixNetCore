@@ -615,8 +615,6 @@ namespace DeviceStatus
 
             var ipv6AttributeName = DeviceStatusTopics.IPv6;
 
-            message += "<h2>For the attribute '" + ipv6AttributeName + "' we have the following changes</h2>";
-
             bool someDevice = false;
 
             // ------------------------------------------
@@ -666,7 +664,7 @@ namespace DeviceStatus
             LoggerHelper.LogInfoWriter(logger, "Downloading Logs from " + devicesDetailsThatMatter.Keys.Count + " devices.");
 
             List<string> logPaths = new List<string>();
-            List<LogEventDetected> logAnalisysResult = new List<LogEventDetected>();
+            List<DeviceEvent> logAnalisysResult = new List<DeviceEvent>();
             List<CommandTaskResponseContent> machineLogsTaskResponseList = null;
             List<CommandTaskResponseContent> openVPNTaskResponseList = null;
 
@@ -790,16 +788,20 @@ namespace DeviceStatus
                     }
                 }
                         
-                message += ("IPv6 Changes: " + history.Count + "<br><br>");
+                message += ("Found " + history.Count + " IPv6 Changes<br><br>");
 
                 someDevice = true;
 
-                foreach (var item in history)
-                {
-                    message += string.Format(" {0}<br>", item.ToJSON());
-                }
-
-
+                //transform the history IPv6 chenages in Dectected Device Event
+                var IPv6Events = from item in history
+                                 select new DeviceEvent()
+                                 {
+                                     DeviceId = deviceId,
+                                     EventDetected = string.Format("New IPv6: {0}", item.Value),
+                                     EventSource = "Edge Manager API",
+                                     TimeStamp = item.TimeStamp
+                                 };
+                
                 //write now logs analisys..
                 var machineLog = machineLogsTaskResponseList.Where(i => i.deviceId == deviceId).FirstOrDefault();
 
@@ -817,14 +819,19 @@ namespace DeviceStatus
 
                 var logsEventOfDevice = logAnalisysResult.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).Where(i => i.DeviceId == deviceId);
 
-                if (logsEventOfDevice.Count() > 0)
+                foreach (var item in IPv6Events)
                 {
-                    message += ("<br>Found" + logAnalisysResult.Count + " events on the Logs:<br>");
+                    logsEventOfDevice.Append(item);
                 }
 
-                foreach (var item in logsEventOfDevice.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderBy(i =>i.TimeStamp))
+                if (logsEventOfDevice.Count() > 0)
                 {
-                    message += (item.TimeStamp + " - " + item.EventDetected + " @ row " + item.LogRow + "<br>");
+                    message += ("<br>Found " + logAnalisysResult.Count + " events for the device:<br>");
+                }
+
+                foreach (var item in logsEventOfDevice.OrderBy(i => i.TimeStamp))
+                {
+                    message += (item.TimeStamp + " - " + item.EventDetected + " from" + item.EventSource + "<br>");
                 }
 
             } //end device id loop :)
@@ -849,9 +856,9 @@ namespace DeviceStatus
             LoggerHelper.LogInfoWriter(logger, "  Report Done!", ConsoleColor.Green);
         }
 
-        private static List<LogEventDetected> analizeDeviceLogs(List<CommandTaskResponseContent> machineLogsTaskResponseList)
+        private static List<DeviceEvent> analizeDeviceLogs(List<CommandTaskResponseContent> machineLogsTaskResponseList)
         {
-            List<LogEventDetected> events = new List<LogEventDetected>();
+            List<DeviceEvent> events = new List<DeviceEvent>();
            
             foreach (var machineLog in machineLogsTaskResponseList)
             {
@@ -874,12 +881,11 @@ namespace DeviceStatus
 
                             DateTime timeStamp = DateTime.ParseExact(timeString, "yyyy-MM-dd HH:mm:ss,fff", CultureInfo.InvariantCulture);
 
-                            var eventDetected = new LogEventDetected();
+                            var eventDetected = new DeviceEvent();
                             eventDetected.DeviceId = machineLog.deviceId;
                             eventDetected.TimeStamp = timeStamp;
                             eventDetected.EventDetected = "Predix Machine Restart";
-                            eventDetected.LogRow = rowIndex;
-                            eventDetected.LogType = "Machine";
+                            eventDetected.EventSource = "Machine Logs";
 
                             events.Add(eventDetected);
                         }
@@ -896,12 +902,11 @@ namespace DeviceStatus
 
                             DateTime timeStamp = DateTime.ParseExact(timeString, dateTimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal);
 
-                            var eventDetected = new LogEventDetected();
+                            var eventDetected = new DeviceEvent();
                             eventDetected.DeviceId = machineLog.deviceId;
                             eventDetected.TimeStamp = timeStamp;
                             eventDetected.EventDetected = "OpenVPN Restart";
-                            eventDetected.LogRow = rowIndex;
-                            eventDetected.LogType = "OpenVPN";
+                            eventDetected.EventSource = "OpenVPN Logs";
 
                             events.Add(eventDetected);
                         }
@@ -917,12 +922,11 @@ namespace DeviceStatus
 
                             DateTime timeStamp = DateTime.ParseExact(timeString, dateTimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal);
 
-                            var eventDetected = new LogEventDetected();
+                            var eventDetected = new DeviceEvent();
                             eventDetected.DeviceId = machineLog.deviceId;
                             eventDetected.TimeStamp = timeStamp;
                             eventDetected.EventDetected = "OpenVPN Initialization Sequence Completed";
-                            eventDetected.LogRow = rowIndex;
-                            eventDetected.LogType = "OpenVPN";
+                            eventDetected.EventSource = "OpenVPN Logs";
 
                             events.Add(eventDetected);
                         }
