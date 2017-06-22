@@ -788,7 +788,7 @@ namespace DeviceStatus
                     }
                 }
                         
-                message += ("Found " + history.Count + " IPv6 Changes<br><br>");
+                message += ("Found " + history.Count + " IPv6 Changes<br>");
 
                 someDevice = true;
 
@@ -817,21 +817,21 @@ namespace DeviceStatus
                     message += ("Was not able to download the OpenVPN log for Device: '" + deviceId + "'.<br>");
                 }
 
-                var logsEventOfDevice = logAnalisysResult.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).Where(i => i.DeviceId == deviceId);
+                var logsEventOfDevice = logAnalisysResult.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).Where(i => i.DeviceId == deviceId).ToList();
 
                 foreach (var item in IPv6Events)
                 {
-                    logsEventOfDevice.Append(item);
+                    logsEventOfDevice.Add(item);
                 }
 
                 if (logsEventOfDevice.Count() > 0)
                 {
-                    message += ("<br>Found " + logAnalisysResult.Count + " events for the device:<br>");
+                    message += ("Found " + logsEventOfDevice.Count + " events for the device:<br><br>");
                 }
 
                 foreach (var item in logsEventOfDevice.OrderBy(i => i.TimeStamp))
                 {
-                    message += (item.TimeStamp + " - " + item.EventDetected + " from" + item.EventSource + "<br>");
+                    message += (item.TimeStamp + " - " + item.EventDetected + " from " + item.EventSource + "<br>");
                 }
 
             } //end device id loop :)
