@@ -5,9 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace PredixEntities
+namespace PredixCommon.Entities.TimeSeries.Query
 {
-    public class PredixTimeSeriesQueryResponse
+    public class GetLastValuesByTagsQueryResponse : ITimeSeriesQueryResponse
     {
         #region sample
 
@@ -220,16 +220,6 @@ namespace PredixEntities
             public string name { get; set; }
             public List<Result> results { get; set; }
             public Stats stats { get; set; }
-        }
-
-
-        public static PredixTimeSeriesQueryResponse Create(StreamReader data)
-        {
-            var readString = data.ReadToEnd();
-
-            var jsonObj = JsonConvert.DeserializeObject<PredixTimeSeriesQueryResponse>(readString);
-
-            return jsonObj;
         }
     }
 }

@@ -439,18 +439,7 @@ namespace DeviceStatus
             IRedisClient redisClient, List<string> deviceIdList)
         {
             var now = DateTime.UtcNow;
-            
-            ////when it was last report??   
-            //var lastReport = redisClient.Get<DateTime?>("LastSchindlerDeviceReport");
-
-            //if (lastReport != null)
-            //{
-            //    createLastUpdateReportAndSend(redisClient, deviceIdList, lastReport.Value);                
-            //}
-
-            //redisClient.Set<DateTime?>("LastSchindlerDeviceReport", DateTime.UtcNow);
-
-            
+               
             var lastDailyReport = redisClient.Get<DateTime?>("LastSummarySchindlerDeviceReport");
 
             try
@@ -485,8 +474,7 @@ namespace DeviceStatus
                 LoggerHelper.LogErrorWriter(logger, string.Format("Something wrong during the report genaration.\n{0}", ex.ToString()));
             }
 
-            //createFullReportAndSend(redisClient, new string[] { "2102351hnf1173000050", "2102351hnf1173000046" }.ToList());
-
+ 
         }
 
         /// <summary>
@@ -559,6 +547,7 @@ namespace DeviceStatus
             }                      
         }
 
+
         /// <summary>
         /// create and sent the report of the last 48 hours of changes
         /// </summary>
@@ -617,13 +606,16 @@ namespace DeviceStatus
 
             bool someDevice = false;
 
+
+
             // ------------------------------------------
             // 
 
             LoggerHelper.LogInfoWriter(logger, "Getting Device Status & History from Redis");
 
-            Dictionary<string, ValueTimeStamp<DeviceDetails>> devicesDetailsThatMatter  = new Dictionary<string, ValueTimeStamp<DeviceDetails>>();
+            Dictionary<string, ValueTimeStamp<DeviceDetails>> deviceDetailsList  = new Dictionary<string, ValueTimeStamp<DeviceDetails>>();
             Dictionary<string, List<ValueTimeStamp<string>>> ipv6ListPerDevice = new Dictionary<string, List<ValueTimeStamp<string>>>();
+
 
             foreach (var deviceId in deviceIdList)
             {
@@ -649,7 +641,7 @@ namespace DeviceStatus
                     //check for IP changes (so... min 3 entries) over the last XX hours...
                     if (history.Count > 2)
                     {   
-                        devicesDetailsThatMatter.Add(deviceId, deviceDetails);
+                        deviceDetailsList.Add(deviceId, deviceDetails);
                         ipv6ListPerDevice.Add(deviceId, history);
                     }
                 }
@@ -658,16 +650,19 @@ namespace DeviceStatus
             // ------------------------------------------
 
 
+
+
             // ------------------------------------------
             // Downlad the logs for Devices that matters...
 
-            LoggerHelper.LogInfoWriter(logger, "Downloading Logs from " + devicesDetailsThatMatter.Keys.Count + " devices.");
+            LoggerHelper.LogInfoWriter(logger, "Downloading Logs from " + deviceDetailsList.Keys.Count + " devices.");
 
             List<string> logPaths = new List<string>();
             List<DeviceEvent> logAnalisysResult = new List<DeviceEvent>();
             List<CommandTaskResponseContent> machineLogsTaskResponseList = null;
             List<CommandTaskResponseContent> openVPNTaskResponseList = null;
 
+            #region Downloads the Logs
 
             var commands = await EdgeManagerHelper.GetAvailableCommands(edgeManagerBaseUrl, accessToken);
 
@@ -676,10 +671,10 @@ namespace DeviceStatus
                 var getlogCommand = commands.Where(c => c.commandDisplayName.Contains("Predix Machine: Get Log")).FirstOrDefault();
 
                 if (getlogCommand != null)
-                {   
+                {
                     var getLogCommandID = getlogCommand.commandId;
 
-                    var devicesForWhichRequiresLogs = devicesDetailsThatMatter.Keys.ToList();
+                    var devicesForWhichRequiresLogs = deviceDetailsList.Keys.ToList();
 
                     machineLogsTaskResponseList = await getOpenVpnLogs(edgeManagerBaseUrl, accessToken,
                           devicesForWhichRequiresLogs, getLogCommandID, "machine:/machine/machine.log", "Get Machine Log for daily report");
@@ -729,68 +724,28 @@ namespace DeviceStatus
                 }
             }
 
+            #endregion
+
             // ------------------------------------------
 
-            foreach (var deviceId in devicesDetailsThatMatter.Keys)
+
+
+            foreach (var deviceId in deviceDetailsList.Keys)
             {
+                someDevice = true;
+
                 //get the latest device details...
-                var deviceDetails = devicesDetailsThatMatter[deviceId];
-                var history = ipv6ListPerDevice[deviceId]; 
-                 
-                message += ("<br><br><b>DeviceId: " + deviceId + "</b><br>");
+                var deviceDetails = deviceDetailsList[deviceId];
 
-                if (deviceDetails != null)
-                {
-                    message += ("Device Name: " + deviceDetails.Value.name + "<br>");
-                    message += ("Device Model: " + deviceDetails.Value.device_model_id + "<br>");
-                            
-                    if (deviceDetails.Value.deviceInfoStatus != null)
-                    {
-                        if ( deviceDetails.Value.deviceInfoStatus.machineInfo != null)
-                        {
-                            message += ("Predix Machine Version: " + deviceDetails.Value.deviceInfoStatus.machineInfo.machineVersion + "<br>");
-                        }
 
-                        if (deviceDetails.Value.deviceInfoStatus.simInfo != null)
-                        {
-                            var firstSimDetails = deviceDetails.Value.deviceInfoStatus.simInfo.FirstOrDefault();
+                writeDeviceDetailsForMail(deviceDetails, message);
+                
 
-                            if (firstSimDetails != null)
-                            {
-                                message += ("ICCID: " + firstSimDetails.iccid + "<br>");
+                var history = ipv6ListPerDevice[deviceId];
 
-                                if (firstSimDetails.attributes != null)
-                                {
-                                    message += ("IMSI: " + firstSimDetails.attributes.imsi.value + "<br>");
-                                    message += ("MNO: " + firstSimDetails.attributes.mno.value + "<br>");
-                                    message += ("Cellular Module: " + firstSimDetails.attributes.module.value + "<br>");
-                                    message += ("Module Firmware: " + firstSimDetails.attributes.firmware.value + "<br>");
-                                }                                        
-                            }
-                        }
-
-                        if (deviceDetails.Value.deviceInfoStatus.cellularStatus != null)
-                        {
-                            var firstSimDetials = deviceDetails.Value.deviceInfoStatus.cellularStatus.FirstOrDefault();
-
-                            if (firstSimDetials != null)
-                            {
-                                message += ("Last Mobile Network Mode: " + firstSimDetials.networkMode + "<br>");
-
-                                if (firstSimDetials.signalStrength != null)
-                                {
-                                    message += ("Last RSSI: " + firstSimDetials.signalStrength.rssi + "<br>");
-                                    message += ("Last RSRP: " + firstSimDetials.signalStrength.rsrp + "<br>");
-                                    message += ("Last RSRQ: " + firstSimDetials.signalStrength.rsrq + "<br>");
-                                }
-                            }
-                        }
-                    }
-                }
-                        
                 message += ("Found " + history.Count + " IPv6 Changes<br>");
 
-                someDevice = true;
+                
 
                 //transform the history IPv6 chenages in Dectected Device Event
                 var IPv6Events = from item in history
@@ -802,7 +757,9 @@ namespace DeviceStatus
                                      TimeStamp = item.TimeStamp
                                  };
                 
-                //write now logs analisys..
+
+
+                //check if we were able to get the Machine Log...
                 var machineLog = machineLogsTaskResponseList.Where(i => i.deviceId == deviceId).FirstOrDefault();
 
                 if (machineLog.code != 200)
@@ -810,6 +767,7 @@ namespace DeviceStatus
                     message += ("Was not able to download the Machine log for Device: '" + deviceId + "'.<br>");
                 }
 
+                //check if we were able to get the OpenVPN Log...
                 var openVPNLog = openVPNTaskResponseList.Where(i => i.deviceId == deviceId).FirstOrDefault();
 
                 if (openVPNLog.code != 200)
@@ -817,19 +775,24 @@ namespace DeviceStatus
                     message += ("Was not able to download the OpenVPN log for Device: '" + deviceId + "'.<br>");
                 }
 
-                var logsEventOfDevice = logAnalisysResult.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).Where(i => i.DeviceId == deviceId).ToList();
 
+                //get the log analisys for the device...
+                var deviceEvents = logAnalisysResult.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).Where(i => i.DeviceId == deviceId).ToList();
+
+
+                //add the IPv6 history as device events
                 foreach (var item in IPv6Events)
                 {
-                    logsEventOfDevice.Add(item);
+                    deviceEvents.Add(item);
                 }
 
-                if (logsEventOfDevice.Count() > 0)
+                //and write in the message for the mail the history...
+                if (deviceEvents.Count() > 0)
                 {
-                    message += ("Found " + logsEventOfDevice.Count + " events for the device:<br><br>");
+                    message += ("Found " + deviceEvents.Count + " events for the device:<br><br>");
                 }
 
-                foreach (var item in logsEventOfDevice.OrderBy(i => i.TimeStamp))
+                foreach (var item in deviceEvents.OrderBy(i => i.TimeStamp))
                 {
                     message += (item.TimeStamp + " - " + item.EventDetected + " from " + item.EventSource + "<br>");
                 }
@@ -856,6 +819,359 @@ namespace DeviceStatus
             LoggerHelper.LogInfoWriter(logger, "  Report Done!", ConsoleColor.Green);
         }
 
+
+
+        /// <summary>
+        /// create and sent the report of the last 48 hours of changes
+        /// </summary>
+        private async static Task createFULLFLEETReportAndSend(string baseUAAUrl, string clientID, string clientSecret, string edgeManagerBaseUrl,
+            IRedisClient redisClient, List<string> deviceIdList, int historyLenght = 48)
+        {
+            LoggerHelper.LogInfoWriter(logger, "Creating and sending daily report...");
+
+            UAAToken accessToken = null;
+
+            try
+            {
+                accessToken = await UAAHelper.GetClientCredentialsGrantAccessToken(baseUAAUrl, clientID, clientSecret);
+
+                if (accessToken != null)
+                {
+                    LoggerHelper.LogInfoWriter(logger, "  Token obtained!", ConsoleColor.Green);
+                }
+                else
+                {
+                    LoggerHelper.LogErrorWriter(logger, "  Error obtaining Token");
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.LogErrorWriter(logger, string.Format("\n\n***\n{0}\n***\n\n", ex.ToString()));
+                return;
+            }
+
+
+
+            // ------------------------------------------
+            // Create the Temporary Folder for the Device Logs download
+
+            var tempFolderPath = System.IO.Path.GetTempPath();
+
+            tempFolderPath = System.IO.Path.Combine(tempFolderPath, "deviceLogs");
+
+            var folderInfo = new System.IO.DirectoryInfo(tempFolderPath);
+
+            if (!folderInfo.Exists)
+            {
+                LoggerHelper.LogInfoWriter(logger, "Creating temporary folder to download the logs..." + tempFolderPath);
+
+                System.IO.Directory.CreateDirectory(tempFolderPath);
+            }
+
+            // ------------------------------------------
+
+
+            var message = string.Empty;
+
+            message += "<h1>Schindler Full Fleet Report</h1>";
+
+            var ipv6AttributeName = DeviceStatusTopics.IPv6;
+
+            bool someDevice = false;
+
+
+
+            // ------------------------------------------
+            // 
+
+            LoggerHelper.LogInfoWriter(logger, "Getting Device Status & History from Redis");
+
+            Dictionary<string, ValueTimeStamp<DeviceDetails>> deviceDetailsList = new Dictionary<string, ValueTimeStamp<DeviceDetails>>();
+            Dictionary<string, List<ValueTimeStamp<string>>> ipv6ListPerDevice = new Dictionary<string, List<ValueTimeStamp<string>>>();
+
+
+            foreach (var deviceId in deviceIdList)
+            {
+                //get the latest device details...
+                var deviceDetails = GetRedisDeviceDetails(redisClient, deviceId);
+
+                deviceDetailsList.Add(deviceId, deviceDetails);
+
+                if (deviceDetails != null)
+                {
+                    if (deviceDetails.Value.device_model_id == "VCube")
+                    {
+                        //skip monitoring for virtual cubes
+                        continue;
+                    }
+                }
+
+                var history = GetRedisHistory<string>(redisClient, deviceId, ipv6AttributeName);
+
+                if (history != null)
+                {
+                    //keep just the last 48 hours! 
+                    history = history.OrderBy(i => i.TimeStamp).ToList();
+
+                    ipv6ListPerDevice.Add(deviceId, history);
+                }
+            }
+
+            // ------------------------------------------
+
+
+
+
+            // ------------------------------------------
+            // Downlad the logs for Devices that matters...
+
+            LoggerHelper.LogInfoWriter(logger, "Downloading Logs from " + deviceDetailsList.Keys.Count + " devices.");
+
+            List<string> logPaths = new List<string>();
+            List<DeviceEvent> logAnalisysResult = new List<DeviceEvent>();
+            List<CommandTaskResponseContent> machineLogsTaskResponseList = null;
+            List<CommandTaskResponseContent> openVPNTaskResponseList = null;
+
+            #region Downloads the Logs
+
+            var commands = await EdgeManagerHelper.GetAvailableCommands(edgeManagerBaseUrl, accessToken);
+
+            if (commands != null)
+            {
+                var getlogCommand = commands.Where(c => c.commandDisplayName.Contains("Predix Machine: Get Log")).FirstOrDefault();
+
+                if (getlogCommand != null)
+                {
+                    var getLogCommandID = getlogCommand.commandId;
+
+                    var devicesForWhichRequiresLogs = deviceDetailsList.Keys.ToList();
+
+                    machineLogsTaskResponseList = await getOpenVpnLogs(edgeManagerBaseUrl, accessToken,
+                          devicesForWhichRequiresLogs, getLogCommandID, "machine:/machine/machine.log", "Get Machine Log for daily report");
+
+                    //serializing the logs as file..
+                    foreach (var item in machineLogsTaskResponseList)
+                    {
+                        var filePath = System.IO.Path.Combine(tempFolderPath, (item.deviceId + "_machine.log"));
+                        System.IO.File.WriteAllText(filePath, item.message);
+                        logPaths.Add(filePath);
+                    }
+
+                    LoggerHelper.LogInfoWriter(logger, "Machine Logs downloaded");
+
+                    // Analyze the Machine Logs!
+                    var machineLogAnalisystResult = analizeDeviceLogs(machineLogsTaskResponseList);
+                    logAnalisysResult.AddRange(machineLogAnalisystResult);
+
+                    if (logAnalisysResult != null)
+                    {
+                        LoggerHelper.LogInfoWriter(logger, "Founds " + logAnalisysResult.Count + " Machine logs events that matter.");
+                    }
+
+                    LoggerHelper.LogInfoWriter(logger, "Downloading OpenVPN Logs");
+
+                    openVPNTaskResponseList = await getOpenVpnLogs(edgeManagerBaseUrl, accessToken,
+                           devicesForWhichRequiresLogs, getLogCommandID, "machine:/machine/openvpn.log", "Get OpenVPN Log for daily report");
+
+                    //serializing the logs as file..
+                    foreach (var item in openVPNTaskResponseList)
+                    {
+                        var filePath = System.IO.Path.Combine(tempFolderPath, (item.deviceId + "_openVpn.log"));
+                        System.IO.File.WriteAllText(filePath, item.message);
+                        logPaths.Add(filePath);
+                    }
+
+                    LoggerHelper.LogInfoWriter(logger, "OpenVPN Logs downloaded");
+
+                    // Analyze the OpenVPN Logs!
+                    var openVPNLogAnalisystResult = analizeDeviceLogs(openVPNTaskResponseList);
+                    logAnalisysResult.AddRange(openVPNLogAnalisystResult);
+
+                    if (openVPNLogAnalisystResult != null)
+                    {
+                        LoggerHelper.LogInfoWriter(logger, "Founds " + openVPNLogAnalisystResult.Count + " Open VPN logs events that matter.");
+                    }
+                }
+            }
+
+            #endregion
+
+            // ------------------------------------------
+
+
+
+            foreach (var deviceId in deviceDetailsList.Keys)
+            {
+                someDevice = true;
+
+                //get the latest device details...
+                var deviceDetails = deviceDetailsList[deviceId];
+
+
+                writeDeviceDetailsForMail(deviceDetails, message);
+
+                IEnumerable<DeviceEvent> IPv6Events = null;
+
+                if ( ipv6ListPerDevice.ContainsKey(deviceId) )
+                {
+                    var history = ipv6ListPerDevice[deviceId];
+                    
+                    message += ("Found " + history.Count + " IPv6 Changes<br>");
+                    
+                    //transform the history IPv6 chenages in Dectected Device Event
+                    IPv6Events = from item in history
+                                        select new DeviceEvent()
+                                        {
+                                            DeviceId = deviceId,
+                                            EventDetected = string.Format("New IPv6: {0}", item.Value),
+                                            EventSource = "Edge Manager API",
+                                            TimeStamp = item.TimeStamp
+                                        };
+
+                }
+                
+
+
+                //check if we were able to get the Machine Log...
+                var machineLog = machineLogsTaskResponseList.Where(i => i.deviceId == deviceId).FirstOrDefault();
+
+                if (machineLog.code != 200)
+                {
+                    message += ("Was not able to download the Machine log for Device: '" + deviceId + "'.<br>");
+                }
+
+                //check if we were able to get the OpenVPN Log...
+                var openVPNLog = openVPNTaskResponseList.Where(i => i.deviceId == deviceId).FirstOrDefault();
+
+                if (openVPNLog.code != 200)
+                {
+                    message += ("Was not able to download the OpenVPN log for Device: '" + deviceId + "'.<br>");
+                }
+
+
+                //get the log analisys for the device...
+                var deviceEvents = logAnalisysResult.Where(i => i.DeviceId == deviceId).ToList();
+
+                if ( IPv6Events != null)
+                {
+                    //add the IPv6 history as device events
+                    foreach (var item in IPv6Events)
+                    {
+                        deviceEvents.Add(item);
+                    }
+                }
+
+
+                //and write in the message for the mail the history...
+                if (deviceEvents.Count() > 0)
+                {
+                    message += ("Found " + deviceEvents.Count + " events for the device:<br><br>");
+                }
+
+                foreach (var item in deviceEvents.OrderBy(i => i.TimeStamp))
+                {
+                    message += (item.TimeStamp + " - " + item.EventDetected + " from " + item.EventSource + "<br>");
+                }
+
+            } //end device id loop :)
+
+            if (!someDevice)
+            {
+                message += "No major changes for any devices!  Good! ";
+            }
+
+            LoggerHelper.LogInfoWriter(logger, "Sending the email...");
+
+            //send the mail with the attachments...
+            SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Daily Report]",
+                message, logPaths);
+
+            //and delete the file...
+            foreach (var file in logPaths)
+            {
+                System.IO.File.Delete(file);
+            }
+
+            LoggerHelper.LogInfoWriter(logger, "  Report Done!", ConsoleColor.Green);
+        }
+
+        private static void writeDeviceDetailsForMail(ValueTimeStamp<DeviceDetails> deviceDetails, string message)
+        {
+            message += ("<br><br><b>DeviceId: " + deviceDetails.Value.did + "</b><br>");
+
+            if (deviceDetails != null)
+            {
+                message += ("Device Name: " + deviceDetails.Value.name + "<br>");
+                message += ("Device Model: " + deviceDetails.Value.device_model_id + "<br>");
+
+                if (deviceDetails.Value.deviceInfoStatus != null)
+                {
+                    if (deviceDetails.Value.deviceInfoStatus.machineInfo != null)
+                    {
+                        message += ("Predix Machine Version: " + deviceDetails.Value.deviceInfoStatus.machineInfo.machineVersion + "<br>");
+                    }
+
+                    if (deviceDetails.Value.deviceInfoStatus.simInfo != null)
+                    {
+                        var firstSimDetails = deviceDetails.Value.deviceInfoStatus.simInfo.FirstOrDefault();
+
+                        if (firstSimDetails != null)
+                        {
+                            message += ("ICCID: " + firstSimDetails.iccid + "<br>");
+
+                            if (firstSimDetails.attributes != null)
+                            {
+                                message += ("IMSI: " + firstSimDetails.attributes.imsi.value + "<br>");
+                                message += ("MNO: " + firstSimDetails.attributes.mno.value + "<br>");
+                                message += ("Cellular Module: " + firstSimDetails.attributes.module.value + "<br>");
+                                message += ("Module Firmware: " + firstSimDetails.attributes.firmware.value + "<br>");
+                            }
+                        }
+                    }
+
+                    if (deviceDetails.Value.deviceInfoStatus.cellularStatus != null)
+                    {
+                        var firstSimDetials = deviceDetails.Value.deviceInfoStatus.cellularStatus.FirstOrDefault();
+
+                        if (firstSimDetials != null)
+                        {
+                            message += ("Last Mobile Network Mode: " + firstSimDetials.networkMode + "<br>");
+
+                            if (firstSimDetials.signalStrength != null)
+                            {
+                                message += ("Last RSSI: " + firstSimDetials.signalStrength.rssi + "<br>");
+                                message += ("Last RSRP: " + firstSimDetials.signalStrength.rsrp + "<br>");
+                                message += ("Last RSRQ: " + firstSimDetials.signalStrength.rsrq + "<br>");
+                            }
+                        }
+                    }
+
+                    if (deviceDetails.Value.deviceInfoStatus.dynamicStatus != null)
+                    {
+                        if (deviceDetails.Value.deviceInfoStatus.dynamicStatus.networkInfo != null)
+                        {
+                            var tun0Network = deviceDetails.Value.deviceInfoStatus.dynamicStatus.networkInfo.Where(ni => ni.name == "tun0").FirstOrDefault();
+
+                            if (tun0Network != null)
+                            {
+                                var IPv6 = tun0Network.ipv6Addresses.FirstOrDefault();
+
+                                if (IPv6 != null)
+                                {
+                                    message += ("Current IPv6: " + IPv6 + "<br>");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// analize Device Logs
+        /// </summary>
+        /// <param name="machineLogsTaskResponseList"></param>
+        /// <returns></returns>
         private static List<DeviceEvent> analizeDeviceLogs(List<CommandTaskResponseContent> machineLogsTaskResponseList)
         {
             List<DeviceEvent> events = new List<DeviceEvent>();
@@ -873,10 +1189,6 @@ namespace DeviceStatus
 
                         if (row.Contains("[Framework] OSGi Runtime is Starting"))
                         {
-                            //Machine restart event detected in the logs!!!
-
-                            //catch the TIME now  2017-06-20 14:53:50,347
-
                             var timeString = row.Substring(0, 23);
 
                             DateTime timeStamp = DateTime.ParseExact(timeString, "yyyy-MM-dd HH:mm:ss,fff", CultureInfo.InvariantCulture);
@@ -889,6 +1201,22 @@ namespace DeviceStatus
 
                             events.Add(eventDetected);
                         }
+
+                        if (row.Contains("Error when connecting to OpenVPN management interface"))
+                        {
+                            var timeString = row.Substring(0, 23);
+
+                            DateTime timeStamp = DateTime.ParseExact(timeString, "yyyy-MM-dd HH:mm:ss,fff", CultureInfo.InvariantCulture);
+
+                            var eventDetected = new DeviceEvent();
+                            eventDetected.DeviceId = machineLog.deviceId;
+                            eventDetected.TimeStamp = timeStamp;
+                            eventDetected.EventDetected = "Predix Machine cant connect OpenVPN management interface";
+                            eventDetected.EventSource = "Machine Logs";
+
+                            events.Add(eventDetected);
+                        }
+                     
 
 
 
@@ -931,8 +1259,25 @@ namespace DeviceStatus
                             events.Add(eventDetected);
                         }
 
-                    }
+                        if (row.Contains("SIGTERM[hard,] received, process exiting"))
+                        {
+                            //catch the TIME now  Thu Jun 22 01:46:42 2017
 
+                            var timeString = row.Substring(0, 24);
+
+                            var dateTimeFormats = new string[] { "ddd MMM d HH:mm:ss yyyy", "ddd MMM dd HH:mm:ss yyyy" };
+
+                            DateTime timeStamp = DateTime.ParseExact(timeString, dateTimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal);
+
+                            var eventDetected = new DeviceEvent();
+                            eventDetected.DeviceId = machineLog.deviceId;
+                            eventDetected.TimeStamp = timeStamp;
+                            eventDetected.EventDetected = "OpenVPN Process Restart ( SIGTERM[hard,] received, process exiting )";
+                            eventDetected.EventSource = "OpenVPN Logs";
+
+                            events.Add(eventDetected);
+                        }
+                    }
                 }
             }
 
@@ -1020,112 +1365,7 @@ namespace DeviceStatus
             return commandTaskResponseList;
         }
 
-        /// <summary>
-        /// create and sent the report of the last 48 hours of changes
-        /// </summary>
-        private static void createFullReportAndSend(IRedisClient redisClient, List<string> deviceIdList, int historyLenght = 48)
-        {
-            LoggerHelper.LogInfoWriter(logger, "Creating and sending full report...");
-
-            var message = string.Empty;
-
-            message += "<h1>Schindler Full Report</h1>";
-
-            var attribute = DeviceStatusTopics.IPv6;
-
-            message += "<h2>For the attribute '" + attribute + "' we have the following changes</h2>";
-
-            bool someDevice = false;
-
-            foreach (var deviceId in deviceIdList)
-            {
-                //get the latest device details...
-                var deviceDetails = GetRedisDeviceDetails(redisClient, deviceId);
-                
-                var history = GetRedisHistory<string>(redisClient, deviceId, attribute);
-
-                if (history != null && history.Count > 0)
-                {
-                    //keep just the last 48 hours! 
-                    history = history.Where(i => i.TimeStamp > DateTime.UtcNow - TimeSpan.FromHours(historyLenght)).OrderBy(i => i.TimeStamp).ToList();
-
-                    //check for IP changes (so... min 2 entries) over the last XX hours...
-                    message += ("<br><br><b>DeviceId: " + deviceId + "</b><br>");
-
-                    if (deviceDetails != null)
-                    {
-                        message += ("Device Name: " + deviceDetails.Value.name + "<br>");
-                        message += ("Device Model: " + deviceDetails.Value.device_model_id + "<br>");
-
-                        if (deviceDetails.Value.deviceInfoStatus != null)
-                        {
-                            if (deviceDetails.Value.deviceInfoStatus.machineInfo != null)
-                            {
-                                message += ("Predix Machine Version: " + deviceDetails.Value.deviceInfoStatus.machineInfo.machineVersion + "<br>");
-                            }
-
-                            if (deviceDetails.Value.deviceInfoStatus.simInfo != null)
-                            {
-                                var firstSimDetails = deviceDetails.Value.deviceInfoStatus.simInfo.FirstOrDefault();
-
-                                if (firstSimDetails != null)
-                                {
-                                    message += ("ICCID: " + firstSimDetails.iccid + "<br>");
-
-                                    if (firstSimDetails.attributes != null)
-                                    {
-                                        message += ("IMSI: " + firstSimDetails.attributes.imsi.value + "<br>");
-                                        message += ("MNO: " + firstSimDetails.attributes.mno.value + "<br>");
-                                        message += ("Cellular Module: " + firstSimDetails.attributes.module.value + "<br>");
-                                        message += ("Module Firmware: " + firstSimDetails.attributes.firmware.value + "<br>");
-                                    }
-                                }
-                            }
-
-                            if (deviceDetails.Value.deviceInfoStatus.cellularStatus != null)
-                            {
-                                var firstSimDetials = deviceDetails.Value.deviceInfoStatus.cellularStatus.FirstOrDefault();
-
-                                if (firstSimDetials != null)
-                                {
-                                    message += ("Last Mobile Network Mode: " + firstSimDetials.networkMode + "<br>");
-
-                                    if (firstSimDetials.signalStrength != null)
-                                    {
-                                        message += ("Last RSSI: " + firstSimDetials.signalStrength.rssi + "<br>");
-                                        message += ("Last RSRP: " + firstSimDetials.signalStrength.rsrp + "<br>");
-                                        message += ("Last RSRQ: " + firstSimDetials.signalStrength.rsrq + "<br>");
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-
-
-                    message += ("IPv6 Changes: " + history.Count + "<br>");
-
-                    someDevice = true;
-
-                    foreach (var item in history)
-                    {
-                        message += string.Format("<br> {0}", item.ToJSON());
-                    }
-                    
-                }
-            }
-
-            if (!someDevice)
-            {
-                message += "No changes for the Topic";
-            }
-
-            message += "<br><br><br>";
-
-            SendEmail(new string[] { "Alberto Gorni" }, new string[] { "alberto.gorni@ge.com" }, "[Schindler Full Report]", message);
-
-            LoggerHelper.LogInfoWriter(logger, "  Done!", ConsoleColor.Green);
-        }
+     
 
 
 
@@ -1186,5 +1426,6 @@ namespace DeviceStatus
             }
             
         }
+
     }
 }

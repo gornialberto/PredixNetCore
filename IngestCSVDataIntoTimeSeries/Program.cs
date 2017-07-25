@@ -44,28 +44,28 @@ namespace IngestCSVDataIntoTimeSeries
             if (string.IsNullOrEmpty(baseUAAUrl))
             {
                 string errMsg = string.Format("Base UAA Url parameter is empty");
-                logFatalWriter(errMsg);
+                LoggerHelper.LogFatalWriter(logger, errMsg);
                 inputValid = false;
             }
 
             if (string.IsNullOrEmpty(clientID))
             {
                 string errMsg = string.Format("Client ID parameter is empty");
-                logFatalWriter(errMsg);
+                LoggerHelper.LogFatalWriter(logger, errMsg);
                 inputValid = false;
             }
 
             if (string.IsNullOrEmpty(clientSecret))
             {
                 string errMsg = string.Format("Client Secret parameter is empty");
-                logFatalWriter(errMsg);
+                LoggerHelper.LogFatalWriter(logger, errMsg);
                 inputValid = false;
             }
 
             if (string.IsNullOrEmpty(timeSeriesBaseUrl))
             {
                 string errMsg = string.Format("Time Series Base Url parameter is empty");
-                logFatalWriter(errMsg);
+                LoggerHelper.LogFatalWriter(logger, errMsg);
                 inputValid = false;
             }
 
@@ -73,21 +73,21 @@ namespace IngestCSVDataIntoTimeSeries
             if (string.IsNullOrEmpty(timeSeriesWSSBaseUrl))
             {
                 string errMsg = string.Format("Time Series Web Socket Base Url parameter is empty");
-                logFatalWriter(errMsg);
+                LoggerHelper.LogFatalWriter(logger, errMsg);
                 inputValid = false;
             }
             
             if (string.IsNullOrEmpty(timeSeriesZoneId))
             {
                 string errMsg = string.Format("Time Series Zone Id parameter is empty");
-                logFatalWriter(errMsg);
+                LoggerHelper.LogFatalWriter(logger, errMsg);
                 inputValid = false;
             }
 
             if (string.IsNullOrEmpty(csvFilePath))
             {
                 string errMsg = string.Format("CSV Path parameter is empty");
-                logFatalWriter(errMsg);
+                LoggerHelper.LogFatalWriter(logger, errMsg);
                 inputValid = false;
             }
 

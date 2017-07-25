@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 
 namespace PredixCommon.Entities.TimeSeries
 {
@@ -12,6 +13,13 @@ namespace PredixCommon.Entities.TimeSeries
         public DataPoint()
         {
 
+        }
+
+        public DataPoint(List<object> rawDataPoint)
+        {
+            this.TimeStamp = long.Parse(rawDataPoint[0].ToString());
+            this.Value = rawDataPoint[1].ToString();
+            this.Quality = (DataQuality)Enum.Parse(typeof(DataQuality), rawDataPoint[2].ToString());
         }
 
         /// <summary>
@@ -54,6 +62,12 @@ namespace PredixCommon.Entities.TimeSeries
             rawJSON.Add(((int)this.Quality).ToString());
 
             return rawJSON;
+        }
+
+        public override string ToString()
+        {
+            return string.Format("{0} ({1}) - {2} - {3}", DateTimeHelper.JavaTimeStampToDateTime(this.TimeStamp),
+                this.TimeStamp, Value, Quality);
         }
     }
 

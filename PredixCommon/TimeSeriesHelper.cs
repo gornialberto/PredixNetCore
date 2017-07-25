@@ -2,7 +2,6 @@
 using Newtonsoft.Json;
 using PredixCommon.Entities;
 using PredixCommon.Entities.TimeSeries;
-using PredixEntities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,11 +24,11 @@ namespace PredixCommon
         /// <param name="timeSeriesZoneId"></param>
         /// <param name="accessToken"></param>
         /// <returns></returns>
-        public async static Task<PredixTimeSeriesTagList> GetFullTagListOfTimeSeriesZoneId(string baseTimeSeriesQueryUrl, string timeSeriesZoneId, UAAToken accessToken)
+        public async static Task<List> GetFullTagListOfTimeSeriesZoneId(string baseTimeSeriesQueryUrl, string timeSeriesZoneId, UAAToken accessToken)
         {
             logger.Debug("Get Full Tag List from Time Series Zone ID: " + timeSeriesZoneId);
 
-            PredixTimeSeriesTagList tagListResponse = null;
+            List tagListResponse = null;
 
             Uri baseTimeSeriesQueryUri = new Uri(baseTimeSeriesQueryUrl, UriKind.Absolute);
 
@@ -56,7 +55,7 @@ namespace PredixCommon
 
                 try
                 {
-                    tagListResponse = new PredixTimeSeriesTagList(new System.IO.StreamReader(contentStream));
+                    tagListResponse = new List(new System.IO.StreamReader(contentStream));
                 }
                 catch (Exception ex)
                 {
@@ -74,49 +73,38 @@ namespace PredixCommon
             return tagListResponse;
         }
 
-        public async static Task<PredixTimeSeriesQueryResponse> GetLastSamples(string baseTimeSeriesQueryUrl, string timeSeriesZoneId, UAAToken accessToken, 
-            PredixTimeSeriesTagList tagList)
-        {
-            logger.Debug("GetLastSamples from Time Series Zone ID: " + timeSeriesZoneId);
 
-            PredixTimeSeriesQueryResponse response = null;
+
+
+        /// <summary>
+        /// Query Time Series
+        /// </summary>
+        /// <typeparam name="TimeSeriesQueryResponse"></typeparam>
+        /// <param name="baseTimeSeriesQueryUrl"></param>
+        /// <param name="timeSeriesZoneId"></param>
+        /// <param name="accessToken"></param>
+        /// <param name="tagList"></param>
+        /// <returns></returns>
+        public async static Task<TimeSeriesQueryResponse> QueryTimeSeries<TimeSeriesQueryResponse>(string baseTimeSeriesQueryUrl, 
+            string timeSeriesZoneId, UAAToken accessToken, ITimeSeriesQuery query) 
+            where TimeSeriesQueryResponse : class, ITimeSeriesQueryResponse
+        {
+            logger.Debug("QueryTimeSeries data from Time Series Zone ID: " + timeSeriesZoneId);
+
+            TimeSeriesQueryResponse response = null;
 
             Uri baseTimeSeriesQueryUri = new Uri(baseTimeSeriesQueryUrl, UriKind.Absolute);
 
             Uri tagDataPointQueryUri = new Uri(baseTimeSeriesQueryUri, URIHelper.timeSeriesQueryTagValueRelativeUri);
 
             HttpClient httpClient = new HttpClient();
+
+            var jsonQuery = query.GetJsonQuery();
+
+            logger.Debug(string.Format("JSON QUERY: \n{0}", jsonQuery));
+
+            System.Net.Http.StringContent jsonContent = new StringContent(jsonQuery);
             
-            string listOfTag = string.Empty;
-
-            foreach (var tagName in tagList.Tags)
-            {
-                listOfTag += "\"" + tagName + "\",";
-            }
-
-            if (listOfTag.Length > 0)
-            {
-                listOfTag = listOfTag.TrimEnd(',');
-            }
-
-            string jsonRequest =
- @"{
-      ""start"":""60d-ago"",
-	  ""tags"":[{
-		    		""name"":[**LIST_OF_TAG**],
-			     	""limit"":1,
-				    ""order"": ""desc"",
-				    ""filters"": {
-                	                ""qualities"": {
-                    	                              ""values"": [""3""]
-                                                   }
-                                 }
-			}]	
-}".Replace("**LIST_OF_TAG**", listOfTag);
-
-            System.Net.Http.StringContent jsonContent = new StringContent(jsonRequest);
-
-
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, tagDataPointQueryUri);
             request.Content = jsonContent;
 
@@ -133,9 +121,9 @@ namespace PredixCommon
             {
                 logger.Debug("Http Response Success Status Code " + httpResponseMessage.StatusCode);
 
-                var contentStream = await httpResponseMessage.Content.ReadAsStreamAsync();
+                var readString = await httpResponseMessage.Content.ReadAsStringAsync();
 
-                response = PredixTimeSeriesQueryResponse.Create(new System.IO.StreamReader(contentStream));
+                response = JsonConvert.DeserializeObject<TimeSeriesQueryResponse>(readString);                                
             }
             else
             {
@@ -144,6 +132,9 @@ namespace PredixCommon
 
             return response;
         }
+
+
+
 
         /// <summary>
         /// Get the WebSocket Client connected to the Ingestion Url

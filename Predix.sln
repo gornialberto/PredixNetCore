@@ -7,19 +7,23 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PredixCommon", "PredixCommo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GetDeviceList", "GetDeviceList\GetDeviceList.csproj", "{C60E10EF-7BA8-4B66-8AEF-CBC74CCF5A6C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeployDeviceModels", "DeployDeviceModels\DeployDeviceModels.csproj", "{C07C1375-0BF2-4DFC-B8DD-AE68C3D406C3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DeployDeviceModels", "DeployDeviceModels\DeployDeviceModels.csproj", "{C07C1375-0BF2-4DFC-B8DD-AE68C3D406C3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IngestCSVDataIntoTimeSeries", "IngestCSVDataIntoTimeSeries\IngestCSVDataIntoTimeSeries.csproj", "{E09D704C-C690-41AF-8C96-1EA26D6D9B17}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IngestCSVDataIntoTimeSeries", "IngestCSVDataIntoTimeSeries\IngestCSVDataIntoTimeSeries.csproj", "{E09D704C-C690-41AF-8C96-1EA26D6D9B17}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSocketClientTest", "WebSocketClientTest\WebSocketClientTest.csproj", "{296C9DF1-A6B5-44AB-A3AA-C8EB86A876F1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSocketClientTest", "WebSocketClientTest\WebSocketClientTest.csproj", "{296C9DF1-A6B5-44AB-A3AA-C8EB86A876F1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GenerateTimeSeriesTestData", "GenerateTimeSeriesTestData\GenerateTimeSeriesTestData.csproj", "{D2F9951E-6AA4-43C2-A90D-4DC0A84090D8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GenerateTimeSeriesTestData", "GenerateTimeSeriesTestData\GenerateTimeSeriesTestData.csproj", "{D2F9951E-6AA4-43C2-A90D-4DC0A84090D8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceStatusLogger", "DeviceStatusLogger\DeviceStatusLogger.csproj", "{CE12BAED-7BE6-4297-B803-DD755291F248}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DeviceStatusLogger", "DeviceStatusLogger\DeviceStatusLogger.csproj", "{CE12BAED-7BE6-4297-B803-DD755291F248}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceStatus", "DeviceStatus\DeviceStatus.csproj", "{34A5135E-A025-43E0-8F0E-79C1C8D1B0C2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DeviceStatus", "DeviceStatus\DeviceStatus.csproj", "{34A5135E-A025-43E0-8F0E-79C1C8D1B0C2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceStatusAnalytics", "DeviceStatusAnalytics\DeviceStatusAnalytics.csproj", "{87E19043-5253-4E42-9E69-2EEE53C4D4F3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DeviceStatusAnalytics", "DeviceStatusAnalytics\DeviceStatusAnalytics.csproj", "{87E19043-5253-4E42-9E69-2EEE53C4D4F3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchindlerMSK", "SchindlerMSK\SchindlerMSK.csproj", "{B20EED37-277C-4E17-BB96-6E62BE98702F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MSKExtractTimeSeriesSamples", "MSKExtractTimeSeriesSamples\MSKExtractTimeSeriesSamples.csproj", "{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,6 +67,14 @@ Global
 		{87E19043-5253-4E42-9E69-2EEE53C4D4F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{87E19043-5253-4E42-9E69-2EEE53C4D4F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{87E19043-5253-4E42-9E69-2EEE53C4D4F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B20EED37-277C-4E17-BB96-6E62BE98702F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B20EED37-277C-4E17-BB96-6E62BE98702F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B20EED37-277C-4E17-BB96-6E62BE98702F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B20EED37-277C-4E17-BB96-6E62BE98702F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace PredixEntities
+namespace PredixCommon.Entities.TimeSeries
 {
-    public class PredixTimeSeriesTagList
+    public class List
     {
         //{
         //"results": ["TAG1","TAG2"]
@@ -30,7 +30,7 @@ namespace PredixEntities
         /// ctor
         /// </summary>
         /// <param name="data"></param>
-        public PredixTimeSeriesTagList(System.IO.StreamReader data)
+        public List(System.IO.StreamReader data)
         {
             var readString = data.ReadToEnd();
 
