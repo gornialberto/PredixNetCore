@@ -231,16 +231,19 @@ namespace MSKMQTTDataDumper
                         {
                             if (index == 1)
                             {
+                                Console.Write("X");
                                 csvRow.Dimension = "x";
                             }
 
                             if (index == 2)
                             {
+                                Console.Write("Y");
                                 csvRow.Dimension = "y";
                             }
 
                             if (index == 3)
                             {
+                                Console.Write("Z");
                                 csvRow.Dimension = "z";
                             }
                         }
