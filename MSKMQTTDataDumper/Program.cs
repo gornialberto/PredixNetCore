@@ -331,7 +331,7 @@ namespace MSKMQTTDataDumper
                     previousTimeStamp = messages[index].TimeStamp;
                 }
 
-                double avarageDeltaS =  (sumOfDelay.TotalMilliseconds / (double)messages.Count) * 1000.0;
+                double avarageDeltaS =  (sumOfDelay.TotalMilliseconds / (double)messages.Count) / 1000.0;
 
                 double messageFrequency = 1.0 / avarageDeltaS;
 
