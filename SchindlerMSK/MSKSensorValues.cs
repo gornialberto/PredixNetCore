@@ -12,14 +12,14 @@ namespace SchindlerMSK
     {
         public MSKSensorValues()
         {
-            this.Data = new List<DimensionData>();
+            this.DimensionsData = new List<DimensionData>();
         }
 
         public string MSKID { get; set; }
 
         public string SensorID { get; set; }
 
-        public List<DimensionData> Data { get; set; }
+        public List<DimensionData> DimensionsData { get; set; }
 
         public override string ToString()
         {

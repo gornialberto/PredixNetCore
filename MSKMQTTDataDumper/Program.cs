@@ -212,19 +212,21 @@ namespace MSKMQTTDataDumper
 
                 foreach (var sample in samples)
                 {
-                    MSKCsvData csvRow = new MSKCsvData();
-                    csvData.Add(csvRow);
-
                     //now split the data bucket..
                     var sampleData = sample.Split(';');
                     var timeStamp = sampleData[0];
 
-                    csvRow.TimeStamp = timeStamp;
-                    csvRow.MSKID = mskID;
-                    csvRow.SensorID = sensorID;
-
+                    
                     for (int index = 1; index < sampleData.Length; index++)
                     {
+                        MSKCsvData csvRow = new MSKCsvData();
+                        csvData.Add(csvRow);
+
+                        csvRow.TimeStamp = timeStamp;
+                        csvRow.MSKID = mskID;
+                        csvRow.SensorID = sensorID;
+                        csvRow.Value = sampleData[index];
+
                         if (sampleData.Length > 2)
                         {
                             if (index == 1)
@@ -248,9 +250,7 @@ namespace MSKMQTTDataDumper
                             {
                                 csvRow.Dimension = "v";
                             }
-                        }
-
-                        csvRow.Value = sampleData[index];
+                        }                        
                     }
                 }
             }

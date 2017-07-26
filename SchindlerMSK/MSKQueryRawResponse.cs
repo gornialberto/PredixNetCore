@@ -246,7 +246,7 @@ namespace SchindlerMSK
 
                             DimensionData dimensionData = new DimensionData();
                             dimensionData.Dimension = dimensionName;
-                            sensorValue.Data.Add(dimensionData);
+                            sensorValue.DimensionsData.Add(dimensionData);
 
                             foreach (var data in dimension.values)
                             {

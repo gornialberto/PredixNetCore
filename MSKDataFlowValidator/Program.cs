@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace MSKDataFlowValidator
 {
@@ -38,9 +39,8 @@ namespace MSKDataFlowValidator
             Environment.SetEnvironmentVariable("timeSeriesWSSBaseUrl", "wss://gateway-predix-data-services.run.aws-usw02-pr.ice.predix.io");
             Environment.SetEnvironmentVariable("timeSeriesZoneId", "7b9a7ea6-1c65-45e2-b414-0bc4ee2326e6");
 
-            Environment.SetEnvironmentVariable("mqttAdapterConfiguration", "com.ge.dspmicro.machineadapter.mqtt-0.xml");
-            Environment.SetEnvironmentVariable("mqttAddress", "localhost");
-            Environment.SetEnvironmentVariable("mqttPort", "1883");
+            Environment.SetEnvironmentVariable("csvDataPath", "C:\\Users\\dev\\Documents\\data.csv");
+           
 
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
@@ -50,10 +50,8 @@ namespace MSKDataFlowValidator
             string timeSeriesWSSBaseUrl = Environment.GetEnvironmentVariable("timeSeriesWSSBaseUrl");
             string timeSeriesZoneId = Environment.GetEnvironmentVariable("timeSeriesZoneId");
 
-            string mqttAdapterConfiguration = Environment.GetEnvironmentVariable("mqttAdapterConfiguration");
-            string mqttAddress = Environment.GetEnvironmentVariable("mqttAddress");
-            string mqttPort = Environment.GetEnvironmentVariable("mqttPort");
-
+            string csvDataPath = Environment.GetEnvironmentVariable("csvDataPath");
+           
 
             bool inputValid = true;
 
@@ -100,27 +98,13 @@ namespace MSKDataFlowValidator
                 inputValid = false;
             }
 
-            if (string.IsNullOrEmpty(mqttAdapterConfiguration))
+            if (string.IsNullOrEmpty(csvDataPath))
             {
-                string errMsg = string.Format("MQTT Machine Adapter configuration file path parameter is empty");
+                string errMsg = string.Format("csvData file path parameter is empty");
                 LoggerHelper.LogFatalWriter(logger, errMsg);
                 inputValid = false;
             }
-
-            if (string.IsNullOrEmpty(mqttAddress))
-            {
-                string errMsg = string.Format("MQTT Address parameter is empty");
-                LoggerHelper.LogFatalWriter(logger, errMsg);
-                inputValid = false;
-            }
-
-            if (string.IsNullOrEmpty(mqttPort))
-            {
-                string errMsg = string.Format("MQTT Port parameter is empty");
-                LoggerHelper.LogFatalWriter(logger, errMsg);
-                inputValid = false;
-            }
-
+            
             if (inputValid)
             {
                 LoggerHelper.LogInfoWriter(logger, "All needed input is provided.", ConsoleColor.Green);
@@ -129,7 +113,7 @@ namespace MSKDataFlowValidator
                 {
                     //now execute the async part...              
                     MainAsync(baseUAAUrl, clientID, clientSecret, timeSeriesBaseUrl, 
-                        timeSeriesWSSBaseUrl, timeSeriesZoneId, mqttAdapterConfiguration, mqttAddress, mqttPort).Wait();
+                        timeSeriesWSSBaseUrl, timeSeriesZoneId, csvDataPath).Wait();
                 }
                 catch (Exception ex)
                 {
@@ -148,11 +132,10 @@ namespace MSKDataFlowValidator
         }
 
         static async Task MainAsync(string baseUAAUrl, string clientID, string clientSecret, string timeSeriesBaseUrl,
-            string timeSeriesWSSBaseUrl, string timeSeriesZoneId, string mqttAdapterConfiguration, string mqttAddress, string mqttPort)
+            string timeSeriesWSSBaseUrl, string timeSeriesZoneId, string csvDataPath)
         {
             logger.Debug("Entering MainAsync");
-
-
+            
             DeviceConfiguration deviceConfiguration = new DeviceConfiguration();
 
             DeviceConfiguration.MSKConfiguration mskConfiguration = new DeviceConfiguration.MSKConfiguration();
@@ -182,7 +165,31 @@ namespace MSKDataFlowValidator
             mskConfigurationReduced.Sensors.Add(new DeviceConfiguration.SensorDetails() { SensorsID = "SN01_01" });
             mskConfigurationReduced.Sensors.Add(new DeviceConfiguration.SensorDetails() { SensorsID = "SN02_03" });
 
-            var json = deviceConfiguration.GetJSON();
+
+            List<MSKCsvData> csvData = null;
+
+            try
+            {
+                using (var csvFileStream = System.IO.File.OpenRead(csvDataPath))
+                {
+                    using (var csvFileReader = new System.IO.StreamReader(csvFileStream))
+                    {
+                        using (CsvHelper.CsvReader csvReader = new CsvHelper.CsvReader(csvFileReader))
+                        {
+                            csvData = csvReader.GetRecords<MSKCsvData>().ToList();
+                        }
+                    }
+                }
+
+                LoggerHelper.LogInfoWriter(logger, "CSV parsed properly!");
+            }
+            catch (Exception ex)
+            {
+                var msg = string.Format("An error occurred reading CSV file.\n{0}", ex);
+                LoggerHelper.LogFatalWriter(logger, msg);
+                throw;
+            }
+
 
 
             LoggerHelper.LogInfoWriter(logger, "Getting Access Token for ClientID: " + clientID);
@@ -211,6 +218,56 @@ namespace MSKDataFlowValidator
             }
 
 
+            List<MSKSensorValues> dataFromTimeSeries = new List<MSKSensorValues>();
+            List<MSKSensorValues> dataFromCsv = new List<MSKSensorValues>();
+
+            var mskIdList = (from csvRow in csvData
+                             select csvRow.MSKID).Distinct();
+
+            foreach (var mskId in mskIdList)
+            {
+                var sensorForKit = (from csvRow in csvData
+                                   where csvRow.MSKID == mskId
+                                   select csvRow.SensorID).Distinct();
+
+                foreach (var sensor in sensorForKit)
+                {
+                    MSKSensorValues sensorValue = new MSKSensorValues();
+                    dataFromCsv.Add(sensorValue);
+
+                    sensorValue.MSKID = mskId;
+                    sensorValue.SensorID = sensor;
+
+
+                    var sensorDimension = (from csvRow in csvData
+                                           where csvRow.MSKID == mskId && csvRow.SensorID == sensor
+                                           select csvRow.Dimension).Distinct();
+
+                    foreach (var dimension in sensorDimension)
+                    {
+                        var dimensionData = new MSKSensorValues.DimensionData();
+                        sensorValue.DimensionsData.Add(dimensionData);
+                        dimensionData.Dimension = dimension;
+
+                        var dimensionDataSample = (from csvRow in csvData
+                                          where csvRow.MSKID == mskId && csvRow.SensorID == sensor && csvRow.Dimension == dimension
+                                          select csvRow).ToList();
+
+                        foreach (var sample in dimensionDataSample)
+                        {
+                            dimensionData.Values.Add(new DataPoint()
+                            {
+                                TimeStamp = long.Parse(sample.TimeStamp),
+                                Quality = DataQuality.Good,
+                                Value = sample.Value
+                            });
+                        }
+                    }                  
+                 }   
+            }
+
+
+
             IQueryTimeSettings queryTimeSettings = new StartTimeAgo(TimeSpan.FromMinutes(5));
 
             List<string> sensors = new List<string>();
@@ -227,6 +284,8 @@ namespace MSKDataFlowValidator
 
 
             var data = mskQueryResult.GetData();
+
+
         }
 
         private static void cleanReturn(ExitCode exitCode)
