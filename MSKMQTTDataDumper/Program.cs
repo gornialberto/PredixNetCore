@@ -282,7 +282,7 @@ namespace MSKMQTTDataDumper
 
             try
             {
-                using (var csvFileStream = System.IO.File.Create(csvOutputPath))
+                using (var csvFileStream = System.IO.File.Create(csvOutputPath + ".csv"))
                 {
                     using (var csvFileWriter = new System.IO.StreamWriter(csvFileStream))
                     {
@@ -307,6 +307,72 @@ namespace MSKMQTTDataDumper
                 LoggerHelper.LogFatalWriter(logger, msg);
                 cleanReturn(ExitCode.ErrorWritingCsv);
             }
+
+            //calculate some statistic...
+            List<MQTTStatistics> statistics = new List<MQTTStatistics>();
+
+            //get the topic list
+            var topics = (from item in rawDataBuffer
+                          select item.Topic).Distinct();
+
+            foreach (var topic in topics)
+            {
+                //Get the message for this topic
+                var messages = (from item in rawDataBuffer
+                               where item.Topic == topic
+                               orderby item.Sequence
+                               select item).ToList();
+
+                DateTime previousTimeStamp = messages[0].TimeStamp;
+
+                TimeSpan sumOfDelay = new TimeSpan(0);
+
+                for (int index = 1; index < messages.Count; index++)
+                {
+                    TimeSpan delta = messages[index].TimeStamp - previousTimeStamp;
+                    sumOfDelay = sumOfDelay + delta;
+                    previousTimeStamp = messages[index].TimeStamp;
+                }
+
+                double avarageDeltaS =  (sumOfDelay.TotalMilliseconds / (double)messages.Count) * 1000.0;
+
+                double messageFrequency = 1.0 / avarageDeltaS;
+
+                MQTTStatistics stat = new MQTTStatistics();
+                statistics.Add(stat);
+                stat.Name = "Message Frequency (Hz)";
+                stat.Subject = topic;
+                stat.Value = messageFrequency.ToString();
+            }
+
+            try
+            {
+                using (var csvFileStream = System.IO.File.Create(csvOutputPath + "_stat.csv"))
+                {
+                    using (var csvFileWriter = new System.IO.StreamWriter(csvFileStream))
+                    {
+                        using (CsvHelper.CsvWriter csvWriter = new CsvHelper.CsvWriter(csvFileWriter))
+                        {
+                            csvWriter.WriteHeader<MSKCsvData>();
+
+                            foreach (var csvRow in csvData)
+                                csvWriter.WriteRecord<MSKCsvData>(csvRow);
+
+                            csvFileWriter.Flush();
+                            csvFileStream.Flush();
+                        }
+                    }
+                }
+
+                LoggerHelper.LogInfoWriter(logger, "Work done!");
+            }
+            catch (Exception ex)
+            {
+                var msg = string.Format("An error occurred writing CSV file.\n{0}", ex);
+                LoggerHelper.LogFatalWriter(logger, msg);
+                cleanReturn(ExitCode.ErrorWritingCsv);
+            }
+
 
             cleanReturn(ExitCode.Success);
         }
