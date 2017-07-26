@@ -11,6 +11,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Globalization;
 
 namespace MSKMQTTDataDumper
 {
@@ -238,7 +239,8 @@ namespace MSKMQTTDataDumper
                         csvData.Add(csvRow);
 
                         csvRow.MQTTMessageSequence = rawData.Sequence.ToString();
-                        csvRow.MQTTMessageTimeStamp = DateTimeHelper.DateTimeToUnixTime(rawData.TimeStamp).ToString();
+                        csvRow.MQTTMessageTimeStamp = rawData.TimeStamp.ToString(CultureInfo.InvariantCulture);
+                        csvRow.MQTTMessageUnixTime = DateTimeHelper.DateTimeToUnixTime(rawData.TimeStamp).ToString();
 
                         csvRow.TimeStamp = timeStamp;
                         csvRow.MSKID = mskID;

@@ -13,5 +13,6 @@ namespace SchindlerMSK
         public string Value { get; set; }
         public string MQTTMessageSequence { get; set; }
         public string MQTTMessageTimeStamp { get; set; }
+        public string MQTTMessageUnixTime { get; set; }
     }
 }
