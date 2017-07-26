@@ -35,7 +35,7 @@ namespace MSKMQTTDataDumper
             Console.WriteLine();
 
             Environment.SetEnvironmentVariable("mqttAdapterConfiguration", "com.ge.dspmicro.machineadapter.mqtt-0.xml");
-            Environment.SetEnvironmentVariable("mqttAddress", "localhost");
+            //Environment.SetEnvironmentVariable("mqttAddress", "localhost");
             //Environment.SetEnvironmentVariable("mqttPort", "1883");
             Environment.SetEnvironmentVariable("csvOutputPath", ".\\mqttDump.cv");
 
