@@ -21,9 +21,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DeviceStatus", "DeviceStatu
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DeviceStatusAnalytics", "DeviceStatusAnalytics\DeviceStatusAnalytics.csproj", "{87E19043-5253-4E42-9E69-2EEE53C4D4F3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchindlerMSK", "SchindlerMSK\SchindlerMSK.csproj", "{B20EED37-277C-4E17-BB96-6E62BE98702F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SchindlerMSK", "SchindlerMSK\SchindlerMSK.csproj", "{B20EED37-277C-4E17-BB96-6E62BE98702F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MSKExtractTimeSeriesSamples", "MSKExtractTimeSeriesSamples\MSKExtractTimeSeriesSamples.csproj", "{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MSKExtractTimeSeriesSamples", "MSKExtractTimeSeriesSamples\MSKExtractTimeSeriesSamples.csproj", "{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MSKDataFlowValidator", "MSKDataFlowValidator\MSKDataFlowValidator.csproj", "{5408D554-E02D-4EED-8393-25AC97E81F15}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MSKMQTTDataDumper", "MSKMQTTDataDumper\MSKMQTTDataDumper.csproj", "{E1F1600F-BF0B-4D49-8863-6D678BD816CB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -75,6 +79,14 @@ Global
 		{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{75132B08-AF6A-4C6B-AEDE-738E9A4FB2D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5408D554-E02D-4EED-8393-25AC97E81F15}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5408D554-E02D-4EED-8393-25AC97E81F15}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5408D554-E02D-4EED-8393-25AC97E81F15}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5408D554-E02D-4EED-8393-25AC97E81F15}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1F1600F-BF0B-4D49-8863-6D678BD816CB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1F1600F-BF0B-4D49-8863-6D678BD816CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1F1600F-BF0B-4D49-8863-6D678BD816CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1F1600F-BF0B-4D49-8863-6D678BD816CB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
