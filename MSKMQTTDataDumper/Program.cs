@@ -36,7 +36,7 @@ namespace MSKMQTTDataDumper
 
             Environment.SetEnvironmentVariable("mqttAdapterConfiguration", "com.ge.dspmicro.machineadapter.mqtt-0.xml");
             Environment.SetEnvironmentVariable("mqttAddress", "localhost");
-            Environment.SetEnvironmentVariable("mqttPort", "1883");
+            //Environment.SetEnvironmentVariable("mqttPort", "1883");
             Environment.SetEnvironmentVariable("csvOutputPath", ".\\mqttDump.cv");
 
             string mqttAdapterConfiguration = Environment.GetEnvironmentVariable("mqttAdapterConfiguration");
@@ -183,7 +183,7 @@ namespace MSKMQTTDataDumper
             {
                 await Task.Delay(100);
 
-                if ((DateTime.Now - start) > TimeSpan.FromSeconds(60))
+                if ((DateTime.UtcNow - start) > TimeSpan.FromSeconds(60))
                 {
                     acquireData = false;
                 }
@@ -274,7 +274,10 @@ namespace MSKMQTTDataDumper
             {
                 var msg = string.Format("An error occurred writing CSV file.\n{0}", ex);
                 LoggerHelper.LogFatalWriter(logger, msg);
+                cleanReturn(ExitCode.ErrorWritingCsv);
             }
+
+            cleanReturn(ExitCode.Success);
         }
 
         /// <summary>

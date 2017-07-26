@@ -14,6 +14,7 @@ namespace PredixCommon.Entities
         PartiallyImported = 10,
         UnknownIssue = 50,
         EdgeManagerIssue = 11,
-        MQTTNotConnected = 12
+        MQTTNotConnected = 12,
+        ErrorWritingCsv = 13
     }
 }
