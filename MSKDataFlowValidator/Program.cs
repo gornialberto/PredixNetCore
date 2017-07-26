@@ -218,8 +218,12 @@ namespace MSKDataFlowValidator
             }
 
 
-            List<MSKSensorValues> dataFromTimeSeries = new List<MSKSensorValues>();
+
+                        
+
             List<MSKSensorValues> dataFromCsv = new List<MSKSensorValues>();
+
+
 
             var mskIdList = (from csvRow in csvData
                              select csvRow.MSKID).Distinct();
@@ -266,25 +270,51 @@ namespace MSKDataFlowValidator
                  }   
             }
 
+            List<MSKSensorValues> dataFromTimeSeries = new List<MSKSensorValues>();
+
+            foreach (var mskId in mskIdList)
+            {
+                var sensorForKit = (from csvRow in csvData
+                                    where csvRow.MSKID == mskId
+                                    select csvRow.SensorID).Distinct().ToList();
+
+                foreach (var sensor in sensorForKit)
+                {
+                    var startTime = (from csvRow in csvData
+                                     where csvRow.MSKID == mskId && csvRow.SensorID == sensor
+                                     select csvRow.TimeStamp).OrderBy(v => v).First();
+
+                    DateTime st = DateTimeHelper.JavaTimeStampToDateTime(double.Parse( startTime));
+
+                    var endTime = (from csvRow in csvData
+                                   where csvRow.MSKID == mskId && csvRow.SensorID == sensor
+                                   select csvRow.TimeStamp).OrderBy(v => v).Last();
+
+                    DateTime et = DateTimeHelper.JavaTimeStampToDateTime(double.Parse(endTime));
 
 
-            IQueryTimeSettings queryTimeSettings = new StartTimeAgo(TimeSpan.FromMinutes(5));
+                    IQueryTimeSettings queryTimeSettings = new ExactStartEndTime(st,et);
+                    
+                    ITimeSeriesQuery mskQuery = new SchindlerMSK.MSKTimeSeriesQuery(mskId, 
+                        new List<string>() { sensor }, queryTimeSettings);
 
-            List<string> sensors = new List<string>();
-            sensors.Add("SN01_01");
-            //sensors.Add("SN01_03");
-
-            ITimeSeriesQuery mskQuery = new SchindlerMSK.MSKTimeSeriesQuery("TST-Processor", sensors, queryTimeSettings);
-
-            var query = mskQuery.GetJsonQuery();
-            LoggerHelper.LogInfoWriter(logger, query);
-
-            var mskQueryResult = await TimeSeriesHelper.QueryTimeSeries<SchindlerMSK.MSKQueryRawResponse>(timeSeriesBaseUrl,
-                timeSeriesZoneId, accessToken, mskQuery);
+                    var query = mskQuery.GetJsonQuery();
+                    
+                    var mskQueryResult = await TimeSeriesHelper.QueryTimeSeries<SchindlerMSK.MSKQueryRawResponse>(timeSeriesBaseUrl,
+                        timeSeriesZoneId, accessToken, mskQuery);
 
 
-            var data = mskQueryResult.GetData();
+                    var data = mskQueryResult.GetData();
 
+                    dataFromTimeSeries.AddRange(data);                        
+                 }                
+            }
+
+
+            //TO IMPLEMENT AN AUTOMATIC CHECK 
+
+            //dataFromTimeSeries
+            //dataFromCsv
 
         }
 
