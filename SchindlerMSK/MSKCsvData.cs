@@ -11,5 +11,7 @@ namespace SchindlerMSK
         public string SensorID { get; set; }
         public string Dimension { get; set; }
         public string Value { get; set; }
+        public string MQTTMessageSequence { get; set; }
+        public string MQTTMessageTimeStamp { get; set; }
     }
 }

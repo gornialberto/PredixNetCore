@@ -22,6 +22,8 @@ namespace MSKMQTTDataDumper
 
         private static bool acquireData = true;
 
+        private static long messageSequence = 0;
+
         static void Main(string[] args)
         {
             var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
@@ -46,6 +48,7 @@ namespace MSKMQTTDataDumper
             string mqttPort = Environment.GetEnvironmentVariable("mqttPort");
             string csvOutputPath = Environment.GetEnvironmentVariable("csvOutputPath");
 
+            string acquisitionSeconds = Environment.GetEnvironmentVariable("acquisitionSeconds");
 
             bool inputValid = true;
 
@@ -77,6 +80,13 @@ namespace MSKMQTTDataDumper
                 inputValid = false;
             }
 
+            if (string.IsNullOrEmpty(acquisitionSeconds))
+            {
+                string errMsg = string.Format("Acquisition seconds parameter is empty");
+                LoggerHelper.LogFatalWriter(logger, errMsg);
+                inputValid = false;
+            }
+
             if (inputValid)
             {
                 LoggerHelper.LogInfoWriter(logger, "All needed input is provided.", ConsoleColor.Green);
@@ -84,7 +94,7 @@ namespace MSKMQTTDataDumper
                 try
                 {
                     //now execute the async part...              
-                    MainAsync(mqttAdapterConfiguration, mqttAddress, mqttPort, csvOutputPath).Wait();
+                    MainAsync(mqttAdapterConfiguration, mqttAddress, mqttPort, csvOutputPath, acquisitionSeconds).Wait();
                 }
                 catch (Exception ex)
                 {
@@ -102,7 +112,8 @@ namespace MSKMQTTDataDumper
 
         }
 
-        static async Task MainAsync(string mqttAdapterConfiguration, string mqttAddress, string mqttPort, string csvOutputPath)
+        static async Task MainAsync(string mqttAdapterConfiguration, string mqttAddress,
+            string mqttPort, string csvOutputPath, string acquisitionSeconds)
         {
             logger.Debug("Entering MainAsync");
 
@@ -183,12 +194,14 @@ namespace MSKMQTTDataDumper
             LoggerHelper.LogInfoWriter(logger,"Starting listening to data...");
 
             DateTime start = DateTime.UtcNow;
-            
+
+            double acquisitionSecondsDouble = double.Parse(acquisitionSeconds);
+
             while (acquireData)
             {
                 await Task.Delay(100);
 
-                if ((DateTime.UtcNow - start) > TimeSpan.FromSeconds(60))
+                if ((DateTime.UtcNow - start) > TimeSpan.FromSeconds(acquisitionSecondsDouble))
                 {
                     acquireData = false;
                 }
@@ -223,6 +236,9 @@ namespace MSKMQTTDataDumper
                     {
                         MSKCsvData csvRow = new MSKCsvData();
                         csvData.Add(csvRow);
+
+                        csvRow.MQTTMessageSequence = rawData.Sequence.ToString();
+                        csvRow.MQTTMessageTimeStamp = DateTimeHelper.DateTimeToUnixTime(rawData.TimeStamp).ToString();
 
                         csvRow.TimeStamp = timeStamp;
                         csvRow.MSKID = mskID;
@@ -303,10 +319,13 @@ namespace MSKMQTTDataDumper
         {
             string messageString = System.Text.Encoding.UTF8.GetString(e.Message);
 
-            if (acquireData)
+            lock(rawDataBuffer)
             {
-                rawDataBuffer.Add(new MSKMQTTRawData() { Topic = e.Topic, Payload = messageString });
-            }
+                if (acquireData)
+                {
+                    rawDataBuffer.Add(new MSKMQTTRawData() { Sequence = messageSequence++, TimeStamp = DateTime.UtcNow, Topic = e.Topic, Payload = messageString });
+                }
+            }           
         }
 
         private static void cleanReturn(ExitCode exitCode)
