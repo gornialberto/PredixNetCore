@@ -7,7 +7,7 @@ namespace PredixCommon
 {
     public class LoggerHelper
     {
-        public static void LogInfoWriter(ILog logger, string content, ConsoleColor color = ConsoleColor.White)
+        public static void LogInfoWriter(ILog logger, string content, ConsoleColor color = ConsoleColor.Gray)
         {
             Console.ForegroundColor = color;
             Console.WriteLine(content);
