@@ -239,7 +239,7 @@ namespace MSKMQTTDataDumper
                         csvData.Add(csvRow);
 
                         csvRow.MQTTMessageSequence = rawData.Sequence.ToString();
-                        csvRow.MQTTMessageTimeStamp = rawData.TimeStamp.ToString(CultureInfo.InvariantCulture);
+                        csvRow.MQTTMessageTimeStamp = rawData.TimeStamp.ToString("yyyy'-'MM'-'dd HH':'mm':'ss':'zzz");
                         csvRow.MQTTMessageUnixTime = DateTimeHelper.DateTimeToUnixTime(rawData.TimeStamp).ToString();
 
                         csvRow.TimeStamp = timeStamp;
@@ -251,19 +251,16 @@ namespace MSKMQTTDataDumper
                         {
                             if (index == 1)
                             {
-                                Console.Write("X");
                                 csvRow.Dimension = "x";
                             }
 
                             if (index == 2)
                             {
-                                Console.Write("Y");
                                 csvRow.Dimension = "y";
                             }
 
                             if (index == 3)
                             {
-                                Console.Write("Z");
                                 csvRow.Dimension = "z";
                             }
                         }
