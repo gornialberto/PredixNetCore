@@ -141,12 +141,15 @@ namespace MSKMQTTDataDumper
             //ok register to the topic...
             uPLibrary.Networking.M2Mqtt.MqttClient mqttClient = null;
 
+            LoggerHelper.LogInfoWriter(logger, "Connecting to " + mqttAddress + ":" + mqttPort);
 
             try
             {
                 mqttClient = new uPLibrary.Networking.M2Mqtt.MqttClient(mqttAddress, int.Parse(mqttPort), false, null, null, uPLibrary.Networking.M2Mqtt.MqttSslProtocols.None);
 
                 mqttClient.Connect("MSK-MQTT-DataDumper");
+
+                LoggerHelper.LogInfoWriter(logger, "Connected to the Broker!");
             }
             catch (Exception ex)
             {
@@ -170,6 +173,8 @@ namespace MSKMQTTDataDumper
             var qos = from item in topicToSubscribe
                       select uPLibrary.Networking.M2Mqtt.Messages.MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE;
 
+            LoggerHelper.LogInfoWriter(logger, "Subscribing...");
+
             //subscribe...
             mqttClient.Subscribe(topicToSubscribe.ToArray(), qos.ToArray());
 
@@ -188,6 +193,9 @@ namespace MSKMQTTDataDumper
                     acquireData = false;
                 }
             }
+
+            LoggerHelper.LogInfoWriter(logger, "Ok some data was acquired now creating CSV");
+
 
             //ok flush the buffer to the CSV!!
             //MSKSensorValues
@@ -268,7 +276,7 @@ namespace MSKMQTTDataDumper
                     }
                 }
 
-                Console.WriteLine("Work done!");
+                LoggerHelper.LogInfoWriter(logger, "Work done!");
             }
             catch (Exception ex)
             {
