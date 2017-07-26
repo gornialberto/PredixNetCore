@@ -32,16 +32,7 @@ namespace MSKDataFlowValidator
             Console.WriteLine("-------------------------------------------");
             Console.WriteLine();
 
-            Environment.SetEnvironmentVariable("baseUAAUrl", "https://62423ac4-7e97-4840-ab38-5548ab9b4719.predix-uaa.run.aws-usw02-pr.ice.predix.io");
-            Environment.SetEnvironmentVariable("clientID", "app_client");
-            Environment.SetEnvironmentVariable("clientSecret", "Qwerty1234%");
-            Environment.SetEnvironmentVariable("timeSeriesBaseUrl", "https://time-series-store-predix.run.aws-usw02-pr.ice.predix.io");
-            Environment.SetEnvironmentVariable("timeSeriesWSSBaseUrl", "wss://gateway-predix-data-services.run.aws-usw02-pr.ice.predix.io");
-            Environment.SetEnvironmentVariable("timeSeriesZoneId", "7b9a7ea6-1c65-45e2-b414-0bc4ee2326e6");
-
-            Environment.SetEnvironmentVariable("csvDataPath", "C:\\Users\\dev\\Documents\\data.csv");
-           
-
+    
 
             string baseUAAUrl = Environment.GetEnvironmentVariable("baseUAAUrl");
             string clientID = Environment.GetEnvironmentVariable("clientID");
