@@ -239,7 +239,7 @@ namespace MSKMQTTDataDumper
                         csvData.Add(csvRow);
 
                         csvRow.MQTTMessageSequence = rawData.Sequence.ToString();
-                        csvRow.MQTTMessageTimeStamp = rawData.TimeStamp.ToString("yyyy'-'MM'-'dd HH':'mm':'ss':'zzz");
+                        csvRow.MQTTMessageTimeStamp = rawData.TimeStamp.ToString("yyyy'-'MM'-'dd HH':'mm':'ss':'fff");
                         csvRow.MQTTMessageUnixTime = DateTimeHelper.DateTimeToUnixTime(rawData.TimeStamp).ToString();
 
                         csvRow.TimeStamp = timeStamp;
@@ -350,10 +350,10 @@ namespace MSKMQTTDataDumper
                     {
                         using (CsvHelper.CsvWriter csvWriter = new CsvHelper.CsvWriter(csvFileWriter))
                         {
-                            csvWriter.WriteHeader<MSKCsvData>();
+                            csvWriter.WriteHeader<MQTTStatistics>();
 
-                            foreach (var csvRow in csvData)
-                                csvWriter.WriteRecord<MSKCsvData>(csvRow);
+                            foreach (var stat in statistics)
+                                csvWriter.WriteRecord<MQTTStatistics>(stat);
 
                             csvFileWriter.Flush();
                             csvFileStream.Flush();
