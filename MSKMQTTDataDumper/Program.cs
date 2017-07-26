@@ -20,6 +20,8 @@ namespace MSKMQTTDataDumper
 
         private static List<MSKMQTTRawData> rawDataBuffer = new List<MSKMQTTRawData>();
 
+        private static bool acquireData = true;
+
         static void Main(string[] args)
         {
             var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
@@ -181,9 +183,7 @@ namespace MSKMQTTDataDumper
             LoggerHelper.LogInfoWriter(logger,"Starting listening to data...");
 
             DateTime start = DateTime.UtcNow;
-
-            bool acquireData = true;
-
+            
             while (acquireData)
             {
                 await Task.Delay(100);
@@ -193,6 +193,8 @@ namespace MSKMQTTDataDumper
                     acquireData = false;
                 }
             }
+
+            mqttClient.Unsubscribe(topicToSubscribe.ToArray());
 
             LoggerHelper.LogInfoWriter(logger, "Ok some data was acquired now creating CSV");
 
@@ -301,7 +303,10 @@ namespace MSKMQTTDataDumper
         {
             string messageString = System.Text.Encoding.UTF8.GetString(e.Message);
 
-            rawDataBuffer.Add(new MSKMQTTRawData() { Topic = e.Topic, Payload = messageString });            
+            if (acquireData)
+            {
+                rawDataBuffer.Add(new MSKMQTTRawData() { Topic = e.Topic, Payload = messageString });
+            }
         }
 
         private static void cleanReturn(ExitCode exitCode)
